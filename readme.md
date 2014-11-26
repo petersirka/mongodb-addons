@@ -6,13 +6,24 @@
 
 ```js
 
-// cursor.join('relationship-property', 'where-to-bind', 'collection-name')
+// cursor.join('relationship-property', 'where-to-bind', 'collection-name', [fields], [additional-filter])
 // relationship-property -> is compared with ._id and values must be ObjectId()
 // cursor.merge(function(err, rows) {})
 
 db.collection('products').find().join('idcategory', 'category', 'categories-collection').merge(function(err, docs) {
     console.log(docs);
 });
+
+// or
+
+db.collection('products').find().join('idcategory', 'category', 'categories', { name: 1 }).merge(function(err, docs) {
+    console.log(docs);
+});
+
+db.collection('products').find().join('idcategory', 'category', 'categories', { name: 1 }, { removed: false }).merge(function(err, docs) {
+    console.log(docs);
+});
+
 ```
 
 ## GridStore

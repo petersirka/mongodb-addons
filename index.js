@@ -1,16 +1,17 @@
 var Cursor = require('mongodb').Cursor;
+var Util = require('util');
 
 global.ObjectID = require('mongodb').ObjectID;
 global.GridStore = require('mongodb').GridStore;
 
-Cursor.prototype.join = function(source, target, collection, fields) {
+Cursor.prototype.join = function(source, target, collection, fields, filter) {
 
     var self = this;
 
     if (!self.pop)
         self.pop = [];
 
-    var item = { relation: [], source: source, target: target, collection: collection, fields: fields === undefined ? null : fields };
+    var item = { relation: [], source: source, target: target, collection: collection, fields: fields === undefined ? null : fields, filter: filter };
 
     self.each(function(err, doc) {
         if (doc === null)
@@ -70,11 +71,16 @@ Cursor.prototype.merge = function(db, callback) {
         };
 
         self.pop.wait(function(item, next) {
-            var filter = { _id: { $in: item.relation }};
+
+            var filter = item.filter ? Util._extend({}, item.filter) : {};
+
+            filter['_id'] = { $in: item.relation };
+
             db.collection(item.collection).find(filter, item.fields).toArray(function(err, docs) {
                 item.result = docs;
                 next();
             });
+
         }, done);
 
     });
@@ -83,7 +89,7 @@ Cursor.prototype.merge = function(db, callback) {
 };
 
 ObjectID.parse = function(value) {
-    if (value.toString().length !== 24)
+    if (!value || value.toString().length !== 24)
         return ''.padLeft(24, '0');
     return new ObjectID(value);
 };
