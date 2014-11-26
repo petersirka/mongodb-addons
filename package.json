@@ -1,0 +1,31 @@
+{
+    "author": {
+        "name": "Peter \u0160irka"
+    },
+    "contributors": [
+        "Peter \u0160irka <petersirka@gmail.com>"
+    ],
+    "description": "A few addons for MongoDB module",
+    "engines": {
+        "node": ">=0.8.0"
+    },
+    "keywords": [
+        "mongodb",
+        "join",
+        "merge"
+    ],
+    "license": "MIT",
+    "main": "./index.js",
+    "name": "mongodb-addons",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/totaljs/framework.git"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "version": "0.0.1",
+    "dependencies": {
+        "mongodb": "latest"
+    }
+}
