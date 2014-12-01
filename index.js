@@ -88,9 +88,14 @@ Cursor.prototype.merge = function(db, callback) {
     return self;
 };
 
-ObjectID.parse = function(value) {
+ObjectID.parse = function(value, isArray) {
+
+    if (isArray)
+        return ObjectID.parseArray(value);
+
     if (!value || value.toString().length !== 24)
         return ''.padLeft(24, '0');
+
     return new ObjectID(value);
 };
 
@@ -100,6 +105,10 @@ ObjectID.parseArray = function(value) {
         value = value.split(',');
 
     var arr = [];
+
+    if (!(value instanceof Array))
+        return arr;
+
     for (var i = 0, length = value.length; i < length; i++)
         arr.push(ObjectID.parse(value[i]));
 
