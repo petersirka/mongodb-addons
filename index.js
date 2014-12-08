@@ -46,7 +46,7 @@ Cursor.prototype.merge = function(db, callback) {
                 for (var b = 0, bl = self.pop.length; b < bl; b++) {
                     var pop = self.pop[b];
                     var source = row[pop.source];
-                    var length = source ? source.length || 0 : 0;
+                    var length = source && source instanceof Array ? source.length || 0 : 0;
 
                     if (length > 0)
                         row[pop.target] = [];
@@ -75,7 +75,6 @@ Cursor.prototype.merge = function(db, callback) {
             var filter = item.filter ? Util._extend({}, item.filter) : {};
 
             filter['_id'] = { $in: item.relation };
-
             db.collection(item.collection).find(filter, item.fields).toArray(function(err, docs) {
                 item.result = docs;
                 next();
