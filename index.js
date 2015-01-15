@@ -11,6 +11,7 @@ Cursor.prototype.join = function(source, target, collection, fields, filter) {
     if (!self.pop)
         self.pop = [];
 
+    var cache = {};
     var item = { relation: [], source: source, target: target, collection: collection, fields: fields === undefined ? null : fields, filter: filter };
 
     self.each(function(err, doc) {
@@ -18,10 +19,20 @@ Cursor.prototype.join = function(source, target, collection, fields, filter) {
             return;
         var value = doc[item.source];
         if (value !== null && value !== undefined) {
-            if (value instanceof Array)
-                item.relation.push.apply(item.relation, value);
-            else
-                item.relation.push(value);
+            if (value instanceof Array) {
+                for (var i = 0, length = value.length; i < length; i++) {
+                    if (cache[value[i]])
+                        continue;
+                    cache[value[i]] = true;
+                    item.relation.push(value[i]);
+                }
+            }
+            else {
+                if (!cache[value]) {
+                    cache[value] = true;
+                    item.relation.push(value);
+                }
+            }
         }
     });
 
@@ -73,8 +84,11 @@ Cursor.prototype.merge = function(db, callback) {
         self.pop.wait(function(item, next) {
 
             var filter = item.filter ? Util._extend({}, item.filter) : {};
+            if (item.relation.length <= 1)
+                filter['_id'] = item.relation[0] || null;
+            else
+                filter['_id'] = { $in: item.relation };
 
-            filter['_id'] = { $in: item.relation };
             db.collection(item.collection).find(filter, item.fields).toArray(function(err, docs) {
                 item.result = docs;
                 next();
@@ -89,7 +103,7 @@ Cursor.prototype.merge = function(db, callback) {
 
 ObjectID.parse = function(value, isArray) {
 
-    if (isArray)
+    if (isArray || value instanceof Array)
         return ObjectID.parseArray(value);
 
     if (!value || value.toString().length !== 24)
