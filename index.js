@@ -36,6 +36,7 @@ Cursor.prototype.join = function(source, target, collection, fields, filter) {
         }
     });
 
+    cache = null;
     self.pop.push(item);
     return self;
 };
@@ -84,12 +85,13 @@ Cursor.prototype.merge = function(db, callback) {
         self.pop.wait(function(item, next) {
 
             var filter = item.filter ? Util._extend({}, item.filter) : {};
-            if (item.relation.length <= 1)
-                filter['_id'] = item.relation[0] || null;
+            var length = item.relation.length;
+            if (length <= 1)
+                filter['_id'] = length === 1 ? item.relation[0] : null;
             else
                 filter['_id'] = { $in: item.relation };
 
-            db.collection(item.collection).find(filter, item.fields).toArray(function(err, docs) {
+            db.collection(item.collection).find(filter, item.fields).limit(length).toArray(function(err, docs) {
                 item.result = docs;
                 next();
             });
