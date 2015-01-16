@@ -36,7 +36,6 @@ Cursor.prototype.join = function(source, target, collection, fields, filter) {
         }
     });
 
-    cache = null;
     self.pop.push(item);
     return self;
 };
@@ -52,9 +51,11 @@ Cursor.prototype.merge = function(db, callback) {
             return;
         }
 
+        var sets = rows.slice(0);
+
         var done = function() {
-            for (var a = 0, al = rows.length; a < al; a++) {
-                var row = rows[a];
+            for (var a = 0, al = sets.length; a < al; a++) {
+                var row = sets[a];
                 for (var b = 0, bl = self.pop.length; b < bl; b++) {
                     var pop = self.pop[b];
                     var source = row[pop.source];
@@ -67,19 +68,19 @@ Cursor.prototype.merge = function(db, callback) {
                         var join = pop.result[c];
                         if (length === 0) {
                             if (join._id.equals(source)) {
-                                rows[a][pop.target] = join;
+                                sets[a][pop.target] = join;
                                 break;
                             }
                         } else {
                             for (var d = 0; d < length; d++) {
                                 if (join._id.equals(source[d]))
-                                    rows[a][pop.target].push(join);
+                                    sets[a][pop.target].push(join);
                             }
                         }
                     }
                 }
             }
-            callback(null, rows);
+            callback(null, sets);
         };
 
         self.pop.wait(function(item, next) {
@@ -87,9 +88,9 @@ Cursor.prototype.merge = function(db, callback) {
             var filter = item.filter ? Util._extend({}, item.filter) : {};
             var length = item.relation.length;
             if (length <= 1)
-                filter['_id'] = length === 1 ? item.relation[0] : null;
+                filter._id = length === 1 ? item.relation[0] : null;
             else
-                filter['_id'] = { $in: item.relation };
+                filter._id = { '$in': item.relation };
 
             db.collection(item.collection).find(filter, item.fields).limit(length).toArray(function(err, docs) {
                 item.result = docs;
