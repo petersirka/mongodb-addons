@@ -242,8 +242,6 @@ MongoBuilder.prototype.sort = function(name, asc) {
 MongoBuilder.prototype.scope = function(name, obj) {
     var self = this;
 
-    console.log(name, obj);
-
     if (self._scope === 0) {
         self.builder[name] = obj;
         return self;
