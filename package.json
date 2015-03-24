@@ -5,7 +5,7 @@
     "contributors": [
         "Peter \u0160irka <petersirka@gmail.com>"
     ],
-    "description": "A few addons for MongoDB module",
+    "description": "MongoDB add-ons",
     "engines": {
         "node": ">=0.8.0"
     },
@@ -19,10 +19,10 @@
     "name": "mongodb-addons",
     "repository": {
         "type": "git",
-        "url": "https://github.com/totaljs/framework.git"
+        "url": "https://github.com/petersirka/mongodb-addons.git"
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
     },
-    "version": "1.0.0"
+    "version": "1.0.1"
 }
