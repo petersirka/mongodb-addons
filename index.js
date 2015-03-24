@@ -202,6 +202,17 @@ MongoBuilder.prototype.take = function(value) {
     return self;
 };
 
+MongoBuilder.prototype.page = function(value, max) {
+    var self = this;
+    value = self.parseInt(value) - 1;
+    max = self.parseInt(max);
+    if (value < 0)
+        value = 0;
+    self._skip = value * max;
+    self._take = max;
+    return self;
+};
+
 MongoBuilder.prototype.limit = function(value) {
     var self = this;
     if (value === undefined)

@@ -53,15 +53,23 @@ builder.or().where('firstname', '=', 'Peter').where('firstname', '=', 'Jozef').e
 builder.where('_id', '=', '0000', true); // true === AUTOCONVERT string to ObjectID
 builder.sort('age', false); // true == ascending, false == descending
 
+// builder.between(name, min, max);
 // builder.like(name, value);
 // builder.regex(name, value);
+// builder.or()...filter...end();
 // builder.and()...filter...end();
 // builder.in(name, value);
 // builder.nin(name, value);
-// builder.filter(name, value); --> is same as builder.where()
+// builder.where(name, operator, value);
+// builder.filter(name, operator, value); --> is same as builder.where()
 // builder.clear();
+// builder.take(number);
+// builder.limit(number); --> is same as builder.take()
+// builder.skip(number);
+// builder.sort(name, [asc]);
+// builder.page(page, max);
 
-builder.take(10);
+builder.page(3, 50); // Sets the page 3 with 50 items (max) on the page
 
 // Execute
 // Uses filter, pagination + sorting and returns cursor
