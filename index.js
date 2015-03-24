@@ -181,8 +181,8 @@ function MongoBuilder(skip, take) {
     this._skip = skip >= 0 ? skip : 0;
     this._take = take >= 0 ? take : 0;
     this._scope = 0;
-    this._inc = {};
-    this._set = {};
+    this._inc = null;
+    this._set = null;
 }
 
 MongoBuilder.prototype.skip = function(value) {
@@ -323,8 +323,8 @@ MongoBuilder.prototype.clear = function(skip, take) {
     self._skip = skip >= 0 ? skip : 0;
     self._take = take >= 0 ? take : 0;
     self._scope = 0;
-    self._inc = {};
-    self._set = {};
+    self._inc = null;
+    self._set = null;
     return self;
 };
 
