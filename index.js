@@ -1,6 +1,9 @@
 var Cursor = require('mongodb').Cursor;
 var Util = require('util');
 var O = require('mongodb').BSONPure.ObjectID;
+var NUMBER = 'number';
+var STRING = 'string';
+var BOOLEAN = 'boolean';
 
 global.ObjectID = require('mongodb').ObjectID;
 global.GridStore = require('mongodb').GridStore;
@@ -117,7 +120,7 @@ ObjectID.parse = function(value, isArray) {
 
 ObjectID.parseArray = function(value) {
 
-    if (typeof(value) === 'string')
+    if (typeof(value) === STRING)
         value = value.split(',');
 
     var arr = [];
@@ -170,6 +173,8 @@ if (!Array.prototype.wait) {
 }
 
 function MongoBuilder(skip, take) {
+    skip = this.parseInt(skip);
+    take = this.parseInt(take);
     this.builder = {};
     this._sort = null;
     this._skip = skip >= 0 ? skip : 0;
@@ -183,6 +188,7 @@ MongoBuilder.prototype.skip = function(value) {
     var self = this;
     if (value === undefined)
         return self._skip;
+    value = self.parseInt(value);
     self._skip = value;
     return self;
 };
@@ -191,6 +197,7 @@ MongoBuilder.prototype.take = function(value) {
     var self = this;
     if (value === undefined)
         return self._take;
+    value = self.parseInt(value);
     self._take = value;
     return self;
 };
@@ -199,6 +206,7 @@ MongoBuilder.prototype.limit = function(value) {
     var self = this;
     if (value === undefined)
         return self._take;
+    value = self.parseInt(value);
     self._take = value;
     return self;
 };
@@ -286,6 +294,31 @@ MongoBuilder.prototype.set = function(name, model) {
     return self;
 };
 
+MongoBuilder.prototype.clear = function(skip, take) {
+    var self = this;
+    skip = self.parseInt(skip);
+    take = self.parseInt(take);
+    self.builder = {};
+    self._sort = null;
+    self._skip = skip >= 0 ? skip : 0;
+    self._take = take >= 0 ? take : 0;
+    self._scope = 0;
+    self._inc = {};
+    self._set = {};
+    return self;
+};
+
+MongoBuilder.prototype.parseInt = function(num) {
+    if (typeof(num) === NUMBER)
+        return num;
+    if (!num)
+        return 0;
+    num = parseInt(num);
+    if (isNaN(num))
+        num = 0;
+    return num;
+};
+
 MongoBuilder.prototype.inc = function(name, model) {
     var self = this;
 
@@ -370,8 +403,8 @@ MongoBuilder.prototype.load = function(value) {
     var self = this;
 
     self.filter = value.builder;
-    self._take = value.take;
-    self._skip = value.skip;
+    self._take = self.parseInt(value.take);
+    self._skip = self.parseInt(value.skip);
     self._set = value.set;
     self._inc = value.inc;
 
@@ -383,12 +416,6 @@ MongoBuilder.prototype.load = function(value) {
 
     if (typeof(self._inc) !== 'object' || self._inc === undefined)
         self._inc = null;
-
-    if (self._take < 0 || !self._take)
-        self._take = 0;
-
-    if (self._skip < 0 || !self._skip)
-        self._skip = 0;
 
     return self;
 };

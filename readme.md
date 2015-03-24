@@ -40,7 +40,7 @@ db.collection('products').find().join('idcategory', 'category', 'categories', { 
 
 ## MongoBuilder
 
-A helper class for building filters.
+A helper class for building filters and __it's a global variable__.
 
 ### Quering
 
@@ -59,6 +59,7 @@ builder.sort('age', false); // true == ascending, false == descending
 // builder.in(name, value);
 // builder.nin(name, value);
 // builder.filter(name, value); --> is same as builder.where()
+// builder.clear();
 
 builder.take(10);
 
@@ -108,7 +109,7 @@ builder.remove(COLLECTION, function(err, result) {
 });
 ```
 
-### Bonus
+### Serialization / Deserialization
 
 ```javascript
 var builder = new MongoBuilder();
