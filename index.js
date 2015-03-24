@@ -589,7 +589,7 @@ function writeFile(db, id, filename, name, meta, callback) {
         }
 
         grid.writeFile(filename, function(err, doc) {
-            if (err) {
+            if (err)
                 return callback(err);
             callback(null);
             grid.close();
