@@ -4,6 +4,7 @@ var O = require('mongodb').BSONPure.ObjectID;
 var NUMBER = 'number';
 var STRING = 'string';
 var BOOLEAN = 'boolean';
+var NOOP = function(){};
 
 global.ObjectID = require('mongodb').ObjectID;
 global.GridStore = require('mongodb').GridStore;
@@ -274,6 +275,14 @@ MongoBuilder.prototype.nin = function(name, value) {
     return this.scope(name, { '$nin': value });
 };
 
+MongoBuilder.prototype.destroy = function() {
+    var self = this;
+    self.builder = null;
+    self._set = null;
+    self._inc = null;
+    return self;
+};
+
 MongoBuilder.prototype.or = function() {
     var self = this;
     if (self._scope)
@@ -488,7 +497,7 @@ MongoBuilder.prototype.update = function(collection, options, callback) {
     var self = this;
 
     if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
-        callback = function(){};
+        callback = NOOP;
 
     var arg = [];
 
@@ -509,7 +518,7 @@ MongoBuilder.prototype.remove = function(collection, options, callback) {
     var self = this;
 
     if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
-        callback = function(){};
+        callback = NOOP;
 
     var arg = [];
 
@@ -540,5 +549,56 @@ MongoBuilder.prototype.getUpdate = function() {
     return upd;
 };
 
+function readFile(db, id, callback) {
+    var reader = new GridStore(db, ObjectID.parse(id), 'r');
+    reader.open(function(err, fs) {
+
+        if (err) {
+            reader.close();
+            reader = null;
+            return callback(err);
+        }
+
+        callback(null, fs, function() {
+            reader.close();
+            reader = null;
+        });
+    });
+}
+
+function writeFile(db, id, filename, name, meta, callback) {
+
+    if (!callback)
+        callback = NOOP;
+
+    if (typeof(meta) === 'function') {
+        var tmp = callback;
+        callback = meta;
+        meta = tmp;
+    }
+
+    var arg = [];
+    var grid = new GridStore(db, id ? id : new ObjectID(), name, 'w', { metadata: meta });
+
+    grid.open(function(err, fs) {
+
+        if (err) {
+            grid.close();
+            grid = null;
+            return callback(err);
+        }
+
+        grid.writeFile(filename, function(err, doc) {
+            if (err) {
+                return callback(err);
+            callback(null);
+            grid.close();
+            grid = null;
+        });
+    });
+}
+
+GridStore.readFile = readFile;
+GridStore.writeFile = writeFile;
 exports.MongoBuilder = MongoBuilder;
 global.MongoBuilder = MongoBuilder;
