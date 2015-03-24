@@ -1,5 +1,6 @@
 var Cursor = require('mongodb').Cursor;
 var Util = require('util');
+var O = require('mongodb').BSONPure.ObjectID;
 
 global.ObjectID = require('mongodb').ObjectID;
 global.GridStore = require('mongodb').GridStore;
@@ -105,14 +106,13 @@ Cursor.prototype.merge = function(db, callback) {
 };
 
 ObjectID.parse = function(value, isArray) {
-
+    if (value instanceof ObjectID)
+        return value;
     if (isArray || value instanceof Array)
         return ObjectID.parseArray(value);
-
-    if (!value || value.toString().length !== 24)
-        return ''.padLeft(24, '0');
-
-    return new ObjectID(value);
+    if (O.isValid(value))
+        return new ObjectID(value);
+    return null;
 };
 
 ObjectID.parseArray = function(value) {
@@ -125,8 +125,11 @@ ObjectID.parseArray = function(value) {
     if (!(value instanceof Array))
         return arr;
 
-    for (var i = 0, length = value.length; i < length; i++)
-        arr.push(ObjectID.parse(value[i]));
+    for (var i = 0, length = value.length; i < length; i++) {
+        var id = ObjectID.parse(value[i]);
+        if (id)
+            arr.push(id);
+    }
 
     return arr;
 };
@@ -165,3 +168,255 @@ if (!Array.prototype.wait) {
         return self;
     };
 }
+
+function MongoBuilder(skip, take) {
+    this.builder = {};
+    this._sort = null;
+    this._skip = skip >= 0 ? skip : 0;
+    this._take = take >= 0 ? take : 0;
+    this._scope = 0;
+    this._inc = {};
+    this._set = {};
+}
+
+MongoBuilder.prototype.skip = function(value) {
+    var self = this;
+    if (value === undefined)
+        return self._skip;
+    self._skip = value;
+    return self;
+};
+
+MongoBuilder.prototype.take = function(value) {
+    var self = this;
+    if (value === undefined)
+        return self._take;
+    self._take = value;
+    return self;
+};
+
+MongoBuilder.prototype.limit = function(value) {
+    var self = this;
+    if (value === undefined)
+        return self._take;
+    self._take = value;
+    return self;
+};
+
+MongoBuilder.prototype.first = function() {
+    var self = this;
+    self._skip = 0;
+    self._take = 1;
+    return self;
+};
+
+MongoBuilder.prototype.sort = function(name, asc) {
+    var self = this;
+    if (asc === undefined)
+        asc = true;
+    if (self._sort === null)
+        self._sort = {};
+    self._sort[name] = asc === true || asc === 'asc' || asc === 1 ? 1 : -1;
+    return self;
+};
+
+MongoBuilder.prototype.scope = function(name, obj) {
+    var self = this;
+
+    if (self._scope === 0) {
+        self.builder[name] = obj;
+        return self;
+    }
+
+    if (self._scope === 1) {
+        if (!self.builder['$or'])
+            self.builder['$or'] = [];
+        var filter = {};
+        filter[name] = obj;
+        self.builder['$or'].push(filter);
+    }
+
+    if (self._scope === 1) {
+        if (!self.builder['$and'])
+            self.builder['$and'] = [];
+        var filter = {};
+        filter[name] = obj;
+        self.builder['$and'].push(filter);
+    }
+
+    return self;
+};
+
+MongoBuilder.prototype.in = function(name, value) {
+    return this.scope(name, { '$in': value });
+};
+
+MongoBuilder.prototype.nin = function(name, value) {
+    return this.scope(name, { '$nin': value });
+};
+
+MongoBuilder.prototype.or = function() {
+    var self = this;
+    if (self._scope)
+        return self.end();
+    self._scope = 1;
+    return self;
+};
+
+MongoBuilder.prototype.and = function() {
+    var self = this;
+    if (self._scope)
+        return self.end();
+    self._scope = 2;
+    return self;
+};
+
+MongoBuilder.prototype.set = function(name, model) {
+    var self = this;
+
+    if (self._set === null)
+        self._set = {};
+
+    if (typeof(name) === 'string') {
+        self._set[name] = model;
+        return self;
+    }
+
+    Util._extend(self._set, model);
+    return self;
+};
+
+MongoBuilder.prototype.inc = function(name, model) {
+    var self = this;
+
+    if (self._inc === null)
+        self._inc = {};
+
+    if (typeof(name) === 'string') {
+        self._inc[name] = model;
+        return self;
+    }
+
+    Util._extend(self._inc, model);
+    return self;
+};
+
+/**
+ * End scope
+ * @return {MongoBuilder}
+ */
+MongoBuilder.prototype.end = function() {
+    var self = this;
+    self._scope = 0;
+    return self;
+};
+
+MongoBuilder.prototype.between = function(name, valueA, valueB) {
+    var a, b;
+    if (valueA > valueB) {
+        a = valueB;
+        b = valueA;
+    } else {
+        a = valueA;
+        b = valueB;
+    }
+    return this.scope(name, { '$lte': a, '$gte': b });
+};
+
+MongoBuilder.prototype.like = function(name, value) {
+    return this.scope(name, { '$regex': value });
+};
+
+MongoBuilder.prototype.regex = function(name, value) {
+    return this.scope(name, { '$regex': value });
+};
+
+MongoBuilder.prototype.where = function(name, operator, value, isID) {
+    return this.filter(name, operator, value, isID);
+};
+
+MongoBuilder.prototype.filter = function(name, operator, value, isID) {
+    if (isID)
+        return ObjectID.parse(value);
+    var self = this;
+    switch (operator) {
+        case '=':
+            return self.scope(name, value);
+        case '!=':
+        case '<>':
+            return self.scope(name, { '$ne': value });
+        case '>':
+            return self.scope(name, { '$gt': value });
+        case '>=':
+            return self.scope(name, { '$gte': value });
+        case '<':
+            return self.scope(name, { '$lt': value });
+        case '<=':
+            return self.scope(name, { '$lte': value });
+    }
+    return self;
+};
+
+MongoBuilder.prototype.find = function(collection, fields) {
+
+    var self = this;
+    var take = self._take;
+    var skip = self._skip;
+    var cursor = collection.find(self.builder, fields);
+
+    if (skip > 0)
+        cursor.skip(skip);
+    if (take > 0)
+        cursor.limit(take);
+    if (self._sort)
+        cursor.sort(self._sort);
+
+    return cursor;
+};
+
+MongoBuilder.prototype.one = function(collection, fields, callback) {
+    return this.findOne(collection, fields, callback);
+};
+
+MongoBuilder.prototype.findOne = function(collection, fields, callback) {
+    var self = this;
+    collection.findOne(self.builder, fields, callback);
+    return self;
+};
+
+MongoBuilder.prototype.update = function(collection, options, callback) {
+    var self = this;
+
+    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+        callback = function(){};
+
+    collection.update(self.builder, self.getUpdate(), options, callback);
+    return self;
+};
+
+MongoBuilder.prototype.remove = function(collection, options, callback) {
+    var self = this;
+
+    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+        callback = function(){};
+
+    collection.remove(self.builder, options, callback);
+    return upd;
+};
+
+MongoBuilder.prototype.getFilter = function() {
+    return this.builder;
+};
+
+MongoBuilder.prototype.getUpdate = function() {
+    var self = this;
+    var upd = {};
+    if (self._set)
+        upd = { '$set': self._set };
+    if (self._inc)
+        upd = { '$inc': self._inc };
+    return upd;
+};
+
+exports.MongoBuilder = MongoBuilder;
+global.MongoBuilder = MongoBuilder;
