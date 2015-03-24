@@ -51,6 +51,7 @@ var builder = new MongoBuilder();
 builder.between('age', 20, 30);
 builder.or().where('firstname', '=', 'Peter').where('firstname', '=', 'Jozef').end();
 builder.where('_id', '=', '0000', true); // true === AUTOCONVERT string to ObjectID
+builder.where('isremoved', false); // default operator is "="
 builder.sort('age', false); // true == ascending, false == descending
 
 // builder.between(name, min, max);

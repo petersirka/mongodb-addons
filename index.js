@@ -380,6 +380,12 @@ MongoBuilder.prototype.where = function(name, operator, value, isID) {
 };
 
 MongoBuilder.prototype.filter = function(name, operator, value, isID) {
+
+    if (typeof(value) === undefined) {
+        value = operator;
+        operator = '=';
+    }
+
     if (isID)
         return ObjectID.parse(value);
     var self = this;
