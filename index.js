@@ -242,6 +242,8 @@ MongoBuilder.prototype.sort = function(name, asc) {
 MongoBuilder.prototype.scope = function(name, obj) {
     var self = this;
 
+    console.log(name, obj);
+
     if (self._scope === 0) {
         self.builder[name] = obj;
         return self;
@@ -381,14 +383,16 @@ MongoBuilder.prototype.where = function(name, operator, value, isID) {
 
 MongoBuilder.prototype.filter = function(name, operator, value, isID) {
 
-    if (typeof(value) === undefined) {
+    if (value === undefined) {
         value = operator;
         operator = '=';
     }
 
-    if (isID)
-        return ObjectID.parse(value);
     var self = this;
+
+    if (isID)
+        value = ObjectID.parse(value);
+
     switch (operator) {
         case '=':
             return self.scope(name, value);
@@ -442,7 +446,14 @@ MongoBuilder.prototype.find = function(collection, fields) {
     var self = this;
     var take = self._take;
     var skip = self._skip;
-    var cursor = collection.find(self.builder, fields);
+
+    var arg = [];
+    arg.push(self.builder);
+
+     if (fields)
+        arg.push(fields);
+
+    var cursor = collection.find.apply(collection, arg);
 
     if (skip > 0)
         cursor.skip(skip);
@@ -459,8 +470,19 @@ MongoBuilder.prototype.one = function(collection, fields, callback) {
 };
 
 MongoBuilder.prototype.findOne = function(collection, fields, callback) {
+
     var self = this;
-    collection.findOne(self.builder, fields, callback);
+    var arg = [];
+
+    arg.push(self.builder);
+
+     if (fields)
+        arg.push(fields);
+
+    if (callback)
+        arg.push(callback);
+
+    collection.findOne.apply(collection, self.builder, fields, callback);
     return self;
 };
 
@@ -470,7 +492,18 @@ MongoBuilder.prototype.update = function(collection, options, callback) {
     if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
         callback = function(){};
 
-    collection.update(self.builder, self.getUpdate(), options, callback);
+    var arg = [];
+
+    arg.push(self.builder);
+    arg.push(self.getUpdate());
+
+     if (options)
+        arg.push(options);
+
+    if (callback)
+        arg.push(callback);
+
+    collection.update.apply(collection, arg);
     return self;
 };
 
@@ -480,7 +513,18 @@ MongoBuilder.prototype.remove = function(collection, options, callback) {
     if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
         callback = function(){};
 
-    collection.remove(self.builder, options, callback);
+    var arg = [];
+
+    arg.push(self.builder);
+    arg.push(self.getUpdate());
+
+     if (options)
+        arg.push(options);
+
+    if (callback)
+        arg.push(callback);
+
+    collection.remove.apply(collection, arg);
     return upd;
 };
 
