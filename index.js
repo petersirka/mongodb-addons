@@ -357,6 +357,42 @@ MongoBuilder.prototype.filter = function(name, operator, value, isID) {
     return self;
 };
 
+MongoBuilder.prototype.save = function() {
+    var self = this;
+    return JSON.stringify({ filter: self.builder, take: self._take, skip: self._skip, inc: self._inc, set: self._set });
+};
+
+MongoBuilder.prototype.load = function(value) {
+
+    if (typeof(value) === 'string')
+        value = JSON.parse(value);
+
+    var self = this;
+
+    self.filter = value.builder;
+    self._take = value.take;
+    self._skip = value.skip;
+    self._set = value.set;
+    self._inc = value.inc;
+
+    if (typeof(self.filter) !== 'object' || self.filter === null || self.filter === undefined)
+        self.filter = {};
+
+    if (typeof(self._set) !== 'object' || self._set === undefined)
+        self._set = null;
+
+    if (typeof(self._inc) !== 'object' || self._inc === undefined)
+        self._inc = null;
+
+    if (self._take < 0 || !self._take)
+        self._take = 0;
+
+    if (self._skip < 0 || !self._skip)
+        self._skip = 0;
+
+    return self;
+};
+
 MongoBuilder.prototype.find = function(collection, fields) {
 
     var self = this;

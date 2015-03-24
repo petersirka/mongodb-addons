@@ -107,3 +107,16 @@ builder.remove(COLLECTION, function(err, result) {
     console.log(result);
 });
 ```
+
+### Bonus
+
+```javascript
+var builder = new MongoBuilder();
+
+// Filter
+builder.where('age', '>', 10);
+
+// Serialize builder to JSON
+var json = builder.save();
+builder.load(json);
+```
