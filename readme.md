@@ -112,6 +112,10 @@ builder.findArray(COLLECTION, function(err, docs) {
 builder.findOne(COLLECTION, function(err, doc) {
     console.log(doc);
 });
+
+builder.count(COLLECTION, function(err, count) {
+    console.log(count);
+});
 ```
 
 ### Updating

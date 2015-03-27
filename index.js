@@ -670,6 +670,14 @@ MongoBuilder.prototype.findArray = function(collection, fields, callback) {
     return this;
 };
 
+MongoBuilder.prototype.count = function(collection, callback) {
+    var self = this;
+    var arg = [];
+    arg.push(self.getFilter());
+    collection.find.apply(collection, arg).count(callback);
+    return self;
+};
+
 MongoBuilder.prototype.find = function(collection, fields) {
 
     var self = this;
