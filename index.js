@@ -776,6 +776,8 @@ MongoBuilder.prototype.update = function(collection, options, callback) {
 
 MongoBuilder.prototype.updateOne = function(collection, options, callback) {
 
+    var self = this;
+
     if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
         callback = NOOP;
 
