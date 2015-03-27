@@ -176,7 +176,7 @@ if (!Array.prototype.wait) {
 function MongoBuilder(skip, take) {
     skip = this.parseInt(skip);
     take = this.parseInt(take);
-    this.builder = {};
+    this._filter = null;
     this._sort = null;
     this._skip = skip >= 0 ? skip : 0;
     this._take = take >= 0 ? take : 0;
@@ -243,25 +243,28 @@ MongoBuilder.prototype.sort = function(name, asc) {
 MongoBuilder.prototype.scope = function(name, obj) {
     var self = this;
 
+    if (!self._filter)
+        self._filter = {};
+
     if (self._scope === 0) {
-        self.builder[name] = obj;
+        self._filter[name] = obj;
         return self;
     }
 
     if (self._scope === 1) {
-        if (!self.builder['$or'])
-            self.builder['$or'] = [];
+        if (!self._filter['$or'])
+            self._filter['$or'] = [];
         var filter = {};
         filter[name] = obj;
-        self.builder['$or'].push(filter);
+        self._filter['$or'].push(filter);
     }
 
     if (self._scope === 1) {
-        if (!self.builder['$and'])
-            self.builder['$and'] = [];
+        if (!self._filter['$and'])
+            self._filter['$and'] = [];
         var filter = {};
         filter[name] = obj;
-        self.builder['$and'].push(filter);
+        self._filter['$and'].push(filter);
     }
 
     return self;
@@ -275,11 +278,118 @@ MongoBuilder.prototype.nin = function(name, value) {
     return this.scope(name, { '$nin': value });
 };
 
+MongoBuilder.prototype.clone = function(onlyFilter) {
+    var self = this;
+    var B = new MongoBuilder(self._skip, self._take);
+
+    if (self._filter)
+        B._filter = Util._extend({}, self._filter);
+
+    if (self._sort)
+        B._sort = Util._extend({}, self._sort);
+
+    if (self._agg)
+        B._agg = Util._extend({}, self._agg);
+
+    B._scope = self._scope;
+
+    if (!onlyFilter) {
+
+        if (self._inc)
+            B._inc = Util._extend({}, self._inc);
+
+        if (self._set)
+            B._set = Util._extend({}, self._set);
+    }
+
+    return B;
+};
+
+MongoBuilder.prototype.merge = function(B, rewrite, onlyFilter) {
+
+    var self = this;
+    var keys = Object.keys(B._filter);
+
+    for (var i = 0, length = keys.length; i < length; i++) {
+        var key = keys[i];
+        if (rewrite)
+            self._filter[key] = B._filter[key];
+        else if (self._filter[key] === undefined)
+            self._filter[key] = B._filter[key];
+    }
+
+    if (B._sort) {
+        keys = Object.keys(B._sort);
+
+        if (self._sort)
+            self._sort = {};
+
+        for (var i = 0, length = keys.length; i < length; i++) {
+            var key = keys[i];
+            if (rewrite)
+                self._sort[key] = B._sort[key];
+            else if (self._sort[key] === undefined)
+                self._sort[key] = B._sort[key];
+        }
+    }
+
+    if (B._agg) {
+        keys = Object.keys(B._agg);
+
+        if (self._agg)
+            self._agg = {};
+
+        for (var i = 0, length = keys.length; i < length; i++) {
+            var key = keys[i];
+            if (rewrite)
+                self._agg[key] = B._agg[key];
+            else if (self._agg[key] === undefined)
+                self._agg[key] = B._agg[key];
+        }
+    }
+
+    if (onlyFilter)
+        return self;
+
+    if (B._set) {
+        keys = Object.keys(B._set);
+
+        if (self._set)
+            self._set = {};
+
+        for (var i = 0, length = keys.length; i < length; i++) {
+            var key = keys[i];
+            if (rewrite)
+                self._set[key] = B._set[key];
+            else if (self._set[key] === undefined)
+                self._set[key] = B._set[key];
+        }
+    }
+
+    if (B._inc) {
+        keys = Object.keys(B._inc);
+
+        if (self._inc)
+            self._inc = {};
+
+        for (var i = 0, length = keys.length; i < length; i++) {
+            var key = keys[i];
+            if (rewrite)
+                self._inc[key] = B._inc[key];
+            else if (self._inc[key] === undefined)
+                self._inc[key] = B._inc[key];
+        }
+    }
+
+    return self;
+};
+
 MongoBuilder.prototype.destroy = function() {
     var self = this;
-    self.builder = null;
+    self._filter = null;
     self._set = null;
     self._inc = null;
+    self._agg = null;
     return self;
 };
 
@@ -299,32 +409,83 @@ MongoBuilder.prototype.and = function() {
     return self;
 };
 
-MongoBuilder.prototype.set = function(name, model) {
+MongoBuilder.prototype.set = function(name, model, skip) {
     var self = this;
 
     if (self._set === null)
         self._set = {};
 
-    if (typeof(name) === 'string') {
+    var type = typeof(name);
+
+    if (type === 'string') {
         self._set[name] = model;
         return self;
     }
 
+    if (model instanceof Array) {
+        var keys = Object.keys(name);
+        for (var i = 0, length = keys.length; i < length; i++) {
+            var key = keys[i];
+            if (key[0] === '$')
+                continue;
+            if (skip) {
+                if (model.indexOf(key) === -1)
+                    self._set[key] = name[key];
+            } else {
+                if (model.indexOf(key) !== -1)
+                    self._set[key] = name[key];
+            }
+        }
+        return self;
+    }
+
     Util._extend(self._set, model);
+
+    if (self._set._id)
+        delete self._set._id;
+
     return self;
+};
+
+MongoBuilder.prototype.clearFilter = function(skip, take) {
+    var self = this;
+    self._skip = self.parseInt(skip);
+    self._take = self.parseInt(take);
+    self._filter = null;
+    self._scope = 0;
+    return self;
+};
+
+MongoBuilder.prototype.clearSort = function() {
+    this._sort = null;
+    return this;
+};
+
+MongoBuilder.prototype.clearAggregate = function() {
+    this._agg = null;
+    return this;
+};
+
+MongoBuilder.prototype.clearSet = function() {
+    this._set = null;
+    return this;
+};
+
+MongoBuilder.prototype.clearInc = function() {
+    this._inc = null;
+    return this;
 };
 
 MongoBuilder.prototype.clear = function(skip, take) {
     var self = this;
-    skip = self.parseInt(skip);
-    take = self.parseInt(take);
-    self.builder = {};
+    self._filter = null;
     self._sort = null;
-    self._skip = skip >= 0 ? skip : 0;
-    self._take = take >= 0 ? take : 0;
+    self._skip = self.parseInt(skip);
+    self._take = self.parseInt(take);
     self._scope = 0;
     self._inc = null;
     self._set = null;
+    self._agg = null;
     return self;
 };
 
@@ -420,7 +581,22 @@ MongoBuilder.prototype.filter = function(name, operator, value, isID) {
 
 MongoBuilder.prototype.save = function() {
     var self = this;
-    return JSON.stringify({ filter: self.builder, take: self._take, skip: self._skip, inc: self._inc, set: self._set });
+    var options = {};
+
+    options.filter = self._filter;
+    options.take = self._take;
+    options.skip = self._skip;
+
+    if (self._inc)
+        options.inc = self._inc;
+
+    if (self._set)
+        options.set = self._set;
+
+    if (self._agg)
+        options.agg = self._agg;
+
+    return JSON.stringify(options);
 };
 
 MongoBuilder.prototype.load = function(value) {
@@ -430,14 +606,15 @@ MongoBuilder.prototype.load = function(value) {
 
     var self = this;
 
-    self.filter = value.builder;
+    self._filter = value.filter;
     self._take = self.parseInt(value.take);
     self._skip = self.parseInt(value.skip);
     self._set = value.set;
     self._inc = value.inc;
+    self._agg = value.agg;
 
-    if (typeof(self.filter) !== 'object' || self.filter === null || self.filter === undefined)
-        self.filter = {};
+    if (typeof(self._filter) !== 'object' || self._filter === null || self._filter === undefined)
+        self._filter = {};
 
     if (typeof(self._set) !== 'object' || self._set === undefined)
         self._set = null;
@@ -445,7 +622,52 @@ MongoBuilder.prototype.load = function(value) {
     if (typeof(self._inc) !== 'object' || self._inc === undefined)
         self._inc = null;
 
+    if (typeof(self._agg) !== 'object' || self._agg === undefined)
+        self._agg = null;
+
     return self;
+};
+
+MongoBuilder.prototype.findArrayCount = function(collection, fields, callback) {
+
+    var self = this;
+    var take = self._take;
+    var skip = self._skip;
+    var arg = [];
+
+    if (typeof(fields) === 'function') {
+        callback = fields;
+        fields = undefined;
+    }
+
+    arg.push(self.getFilter());
+
+     if (fields)
+        arg.push(fields);
+
+    var cursor = collection.find.apply(collection, arg);
+
+    cursor.count(function(err, count) {
+        if (err)
+            return callback(err);
+        cursor = collection.find.apply(collection, arg);
+        if (skip > 0)
+            cursor.skip(skip);
+        if (take > 0)
+            cursor.limit(take);
+        if (self._sort)
+            cursor.sort(self._sort);
+        cursor.toArray(function(err, docs) {
+            callback(err, docs, count);
+        });
+    });
+
+    return self;
+};
+
+MongoBuilder.prototype.findArray = function(collection, fields, callback) {
+    this.find(collection, fields).toArray(callback);
+    return this;
 };
 
 MongoBuilder.prototype.find = function(collection, fields) {
@@ -455,7 +677,7 @@ MongoBuilder.prototype.find = function(collection, fields) {
     var skip = self._skip;
 
     var arg = [];
-    arg.push(self.builder);
+    arg.push(self.getFilter());
 
      if (fields)
         arg.push(fields);
@@ -481,7 +703,7 @@ MongoBuilder.prototype.findOne = function(collection, fields, callback) {
     var self = this;
     var arg = [];
 
-    arg.push(self.builder);
+    arg.push(self.getFilter());
 
      if (fields)
         arg.push(fields);
@@ -489,7 +711,27 @@ MongoBuilder.prototype.findOne = function(collection, fields, callback) {
     if (callback)
         arg.push(callback);
 
-    collection.findOne.apply(collection, self.builder, fields, callback);
+    collection.findOne.apply(collection, arg);
+    return self;
+};
+
+MongoBuilder.prototype.insert = function(collection, options, callback) {
+    var self = this;
+
+    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+        callback = NOOP;
+
+    var arg = [];
+
+    arg.push(self.getInsert());
+
+     if (options)
+        arg.push(options);
+
+    if (callback)
+        arg.push(callback);
+
+    collection.insert.apply(collection, arg);
     return self;
 };
 
@@ -499,13 +741,51 @@ MongoBuilder.prototype.update = function(collection, options, callback) {
     if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
         callback = NOOP;
 
+    if (typeof(options) === 'function') {
+        callback = options;
+        options = {};
+    }
+
+    if (!options)
+        options = {};
+
+    options.multi = true;
+
     var arg = [];
 
-    arg.push(self.builder);
+    arg.push(self.getFilter());
     arg.push(self.getUpdate());
 
-     if (options)
+    if (options)
         arg.push(options);
+
+    if (callback)
+        arg.push(callback);
+
+    collection.update.apply(collection, arg);
+    return self;
+};
+
+MongoBuilder.prototype.updateOne = function(collection, options, callback) {
+
+    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+        callback = NOOP;
+
+    if (typeof(options) === 'function') {
+        callback = options;
+        options = {};
+    }
+
+    if (!options)
+        options = {};
+
+    options.multi = false;
+
+    var arg = [];
+
+    arg.push(self.getFilter());
+    arg.push(self.getUpdate());
+    arg.push(options);
 
     if (callback)
         arg.push(callback);
@@ -522,8 +802,37 @@ MongoBuilder.prototype.remove = function(collection, options, callback) {
 
     var arg = [];
 
-    arg.push(self.builder);
-    arg.push(self.getUpdate());
+    arg.push(self.getFilter());
+
+    if (options)
+        arg.push(options);
+
+    if (callback)
+        arg.push(callback);
+
+    collection.remove.apply(collection, arg);
+    return self;
+};
+
+MongoBuilder.prototype.removeOne = function(collection, options, callback) {
+    var self = this;
+
+    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+        callback = NOOP;
+
+    if (typeof(options) === 'function') {
+        callback = options;
+        options = {};
+    }
+
+    if (!options)
+        options = {};
+
+    options.single = true;
+
+    var arg = [];
+
+    arg.push(self.getFilter());
 
      if (options)
         arg.push(options);
@@ -532,11 +841,11 @@ MongoBuilder.prototype.remove = function(collection, options, callback) {
         arg.push(callback);
 
     collection.remove.apply(collection, arg);
-    return upd;
+    return self;
 };
 
 MongoBuilder.prototype.getFilter = function() {
-    return this.builder;
+    return this._filter ? this._filter : {};
 };
 
 MongoBuilder.prototype.getUpdate = function() {
@@ -548,6 +857,154 @@ MongoBuilder.prototype.getUpdate = function() {
         upd = { '$inc': self._inc };
     return upd;
 };
+
+MongoBuilder.prototype.getInsert = function() {
+    var self = this;
+    var ins = {};
+    if (self._set)
+        ins = self._set;
+    if (!ins._id)
+        ins._id = new ObjectID();
+    return ins;
+};
+
+MongoBuilder.prototype.aggregate = function(collection, options, callback) {
+
+    var self = this;
+
+    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+        callback = NOOP;
+
+    if (typeof(options) === 'function') {
+        callback = options;
+        options = undefined;
+    }
+
+    var keys = Object.keys(self._agg);
+    var pipeline = [];
+
+    if (self._filter)
+        pipeline.push({ $match: self._filter });
+
+    for (var i = 0, length = keys.length; i < length; i++) {
+        var tmp = {};
+        tmp[keys[i]] = self._agg[keys[i]];
+        pipeline.push(tmp);
+    }
+
+    if (self._sort)
+        pipeline.push({ $sort: self._sort });
+
+    if (self._take > 0)
+        pipeline.push({ $limit: self._take });
+
+    if (self._skip > 0)
+        pipeline.push({ $skip: self._skip });
+
+    if (options)
+        collection.aggregate(pipeline, options, callback);
+    else
+        collection.aggregate(pipeline, callback);
+
+    return self;
+};
+
+MongoBuilder.prototype.group = function(id, path) {
+    var self = this;
+
+    if (!self._agg)
+        self._agg = {};
+
+    if (!self._agg.$group)
+        self._agg.$group = {};
+
+    if (id.substring(0, 3) !== '_id')
+        id = '_id.' + id;
+
+    makeAgg(self._agg.$group, id);
+
+    if (path)
+        makeAgg(self._agg.$group, path);
+
+    return self;
+};
+
+MongoBuilder.prototype.project = function(path) {
+    var self = this;
+
+    if (!self._agg)
+        self._agg = {};
+
+    if (!self._agg.$project)
+        self._agg.$project = {};
+
+    makeAgg(self._agg.$project, path);
+    return self;
+};
+
+MongoBuilder.prototype.unwind = function(path) {
+    var self = this;
+
+    if (!self._agg)
+        self._agg = {};
+
+    if (path[0] !== '$')
+        path = '$' + path;
+
+    self._agg.$unwind = path;
+    return self;
+};
+
+function makeAgg(obj, path) {
+
+    var arr = path.split('.');
+    var value = arr.pop();
+    var length = arr.length;
+
+    if (value === '1' || value === '0')
+        value = parseInt(value);
+    else
+        value = value === '' ? null : '$' + value;
+
+    if (!obj)
+        obj = {};
+
+    if (!obj[arr[0]]) {
+        if (length === 1) {
+            obj[arr[0]] = value;
+            return;
+        }
+        obj[arr[0]] = {};
+    }
+
+    var current = obj[arr[0]];
+
+    for (var i = 1; i < length; i++) {
+        var key = arr[i];
+
+        if (!current[key]) {
+
+            if (i === length - 1) {
+                current[key] = value;
+                break;
+            }
+
+            current[key] = {};
+            current = current[key];
+            continue;
+        }
+
+        if (i === length - 1) {
+            if (current[key] instanceof Array)
+                current[key].push(value);
+            else
+                current[key] = [current[key], value];
+            break;
+        }
+
+        current = current[key];
+    }
+}
 
 function readFile(db, id, callback) {
     var reader = new GridStore(db, ObjectID.parse(id), 'r');

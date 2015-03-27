@@ -77,6 +77,11 @@ builder.sort('age', false); // true == ascending, false == descending
 // builder.where(name, operator, value);
 // builder.filter(name, operator, value); --> is same as builder.where()
 // builder.clear();
+// builder.clearFilter([skip, take]);
+// builder.clearSort();
+// builder.clearAggregate();
+// builder.clearSet();
+// builder.clearInc();
 // builder.take(number);
 // builder.limit(number); --> is same as builder.take()
 // builder.skip(number);
@@ -92,6 +97,17 @@ builder.find(COLLECTION).toArray(function(err, docs) {
 });
 
 // Execute
+// Uses filter, pagination + sorting + count() + requery collection
+builder.findArrayCount(COLLECTION, function(err, docs, count) {
+    console.log(docs, count);
+});
+
+// Uses filter, pagination + sorting
+builder.findArray(COLLECTION, function(err, docs) {
+    console.log(docs);
+});
+
+// Execute
 // Uses filter
 builder.findOne(COLLECTION, function(err, doc) {
     console.log(doc);
@@ -99,6 +115,8 @@ builder.findOne(COLLECTION, function(err, doc) {
 ```
 
 ### Updating
+
+- `_id` property is skipped automatically
 
 ```javascript
 var builder = new MongoBuilder();
@@ -108,11 +126,24 @@ builder.where('age', '>', 10);
 
 // Update
 builder.set('firstname', 'Peter');
-builder.set({ lastname: 'Peter' });
+builder.set({ firstname: 'Peter', lastname: 'Širka' });
 builder.inc('countview', 1);
 
+// Updates only age field
+// _id is skipped automatically
+builder.set({ _id: ObjectID('..'), firstname: 'Peter' lastname: 'Širka', age: 30 }, ['age']);
+
+// Skips the age field
+// _id is skipped automatically
+builder.set({ _id: ObjectID('..'), firstname: 'Peter' lastname: 'Širka', age: 30 }, ['age'], true);
+
 // Execute
-builder.update(COLLECTION, { multi: true }, function(err, result) {
+builder.update(COLLECTION, function(err, result) {
+    console.log(result);
+});
+
+// Execute
+builder.updateOne(COLLECTION, function(err, result) {
     console.log(result);
 });
 ```
@@ -129,6 +160,79 @@ builder.where('age', '>', 10);
 builder.remove(COLLECTION, function(err, result) {
     console.log(result);
 });
+
+builder.removeOne(COLLECTION, function(err, result) {
+    console.log(result);
+});
+```
+
+### Aggregation
+
+__$match__:
+
+```javascript
+var builder = new MongoBuilder();
+
+builder.where('_id', '=', new ObjectID());
+// { $match: { _id: 54d916f34c46f862576336a3 }}
+```
+
+__$skip and $limit__:
+
+```javascript
+builder.skip(10);
+// { $skip: 10 }
+
+builder.take(10);
+// { $limit: 10 }
+```
+
+__$sort__:
+
+```javascript
+var builder = new MongoBuilder();
+
+builder.sort('age', false);
+// { $sort: { age: -1 }}
+```
+
+__$group__:
+
+```javascript
+builder.group('_id.year.year', 'count.$sum.1');
+builder.group('_id.month.month');
+// { $group: { _id: { year: '$year', month: '$month' }, count: { $sum: 1 }}}
+
+builder.group('_id.', 'count.$avg.quantity');
+// { $group: { _id: null, count: { $avg: '$quantity' }}}
+
+builder.group('_id.item', 'count.$push.item');
+builder.group('_id.item', 'count.$push.quantity');
+// { $group: { _id: 'item', count: { $push: ['$item', '$quantity'] }}}
+```
+
+__$unwind__:
+
+```javascript
+builder.unwind('sizes');
+// { $unwind: '$sizes' }}
+```
+
+__$project__:
+
+```javascript
+builder.project('title.1');
+builder.project('author.1');
+// { $project: { 'title': 1, 'author': 1 }}
+```
+
+__execute aggregation__:
+
+```javascript
+// builder.aggregate(collection, [options], callback);
+builder.aggregate(COLLECTION, function(err, results) {
+    console.log(results);
+});
 ```
 
 ### Serialization / Deserialization
@@ -142,4 +246,22 @@ builder.where('age', '>', 10);
 // Serialize builder to JSON
 var json = builder.save();
 builder.load(json);
+```
+
+### Cloning & Merging
+
+```javascript
+var builder = new MongoBuilder();
+
+// Filter
+builder.where('age', '>', 10);
+
+// Cloning
+var newbuilder = builder.clone();
+var newbuilderOnlyFilterAndSort = builder.clone(true);
+
+newbuilder.where('firstname', 'Peter');
+
+builder.merge(newbuilder);
+// builder.merge(builder, [rewrite], [onlyFilter]);
 ```
