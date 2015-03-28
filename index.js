@@ -181,8 +181,13 @@ function MongoBuilder(skip, take) {
     this._skip = skip >= 0 ? skip : 0;
     this._take = take >= 0 ? take : 0;
     this._scope = 0;
+    this._agg = null;
     this._inc = null;
     this._set = null;
+    this.onFilter = null;
+    this.onUpdate = null;
+    this.onAggregate = null;
+    this.onInsert = null;
 }
 
 MongoBuilder.prototype.skip = function(value) {
@@ -855,7 +860,11 @@ MongoBuilder.prototype.removeOne = function(collection, options, callback) {
 };
 
 MongoBuilder.prototype.getFilter = function() {
-    return this._filter ? this._filter : {};
+    var self = this;
+    var filter = self._filter ? self._filter : {};
+    if (self.onFilter)
+        self.onFilter(filter);
+    return filter;
 };
 
 MongoBuilder.prototype.getUpdate = function() {
@@ -865,6 +874,8 @@ MongoBuilder.prototype.getUpdate = function() {
         upd = { '$set': self._set };
     if (self._inc)
         upd = { '$inc': self._inc };
+    if (self.onUpdate)
+        self.onUpdate(upd);
     return upd;
 };
 
@@ -875,6 +886,8 @@ MongoBuilder.prototype.getInsert = function() {
         ins = self._set;
     if (!ins._id)
         ins._id = new ObjectID();
+    if (self.onInsert)
+        self.onInsert(ins);
     return ins;
 };
 
@@ -890,15 +903,19 @@ MongoBuilder.prototype.aggregate = function(collection, options, callback) {
         options = undefined;
     }
 
-    var keys = Object.keys(self._agg);
+    var agg = self._agg;
+    if (self.onAggregate)
+        self.onAggregate(agg);
+
+    var keys = Object.keys(agg);
     var pipeline = [];
 
     if (self._filter)
-        pipeline.push({ $match: self._filter });
+        pipeline.push({ $match: self.getFilter() });
 
     for (var i = 0, length = keys.length; i < length; i++) {
         var tmp = {};
-        tmp[keys[i]] = self._agg[keys[i]];
+        tmp[keys[i]] = agg[keys[i]];
         pipeline.push(tmp);
     }
 

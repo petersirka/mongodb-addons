@@ -269,3 +269,28 @@ newbuilder.where('firstname', 'Peter');
 builder.merge(newbuilder);
 // builder.merge(builder, [rewrite], [onlyFilter]);
 ```
+
+### Extra
+
+You can change the input arguments via delegates:
+
+```javascript
+var builder = new MongoBuilder();
+
+builder.onFilter = function(obj) {
+    
+};
+
+builder.onUpdate = function(obj) {
+    // e.g. obj.$set
+    // e.g. obj.$inc
+};
+
+builder.onInsert = function(obj) {
+    
+};
+
+builder.onAggregate = function(obj) {
+    
+};
+```
