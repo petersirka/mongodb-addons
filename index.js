@@ -3,6 +3,7 @@ var Util = require('util');
 var O = require('mongodb').BSONPure.ObjectID;
 var NUMBER = 'number';
 var STRING = 'string';
+var FUNCTION = 'function';
 var BOOLEAN = 'boolean';
 var OBJECT = 'object';
 var NOOP = function(){};
@@ -485,6 +486,9 @@ MongoBuilder.prototype.diff = function(a, b, keys, skip) {
         if (key === '_id')
             continue;
 
+        if (key[0] === '$')
+            continue;
+
         var valueA = a[key];
         var valueB = b[key];
 
@@ -505,6 +509,9 @@ MongoBuilder.prototype.diff = function(a, b, keys, skip) {
 
             continue;
         }
+
+        if (ta === FUNCTION || tb === FUNCTION)
+            continue;
 
         if (valueA instanceof ObjectID || valueB instanceof ObjectID) {
 
