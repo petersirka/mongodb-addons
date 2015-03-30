@@ -152,6 +152,27 @@ builder.updateOne(COLLECTION, function(err, result) {
 });
 ```
 
+### Updating of differences
+
+```javascript
+var builder = new MongoBuilder();
+
+// A some document from database which we will update later.
+var doc = {};
+
+// A document from the form
+var form = {};
+
+// Filter
+builder.where('_id', SOME_OBJECT_ID);
+
+// Makes a differences
+builder.diff(doc, form);
+// builder.diff(doc, form, ['only', 'this', 'properties']);
+// builder.diff(doc, form, ['skip', 'this', 'properties'], true);
+builder.updateOne();
+```
+
 ### Deleting
 
 ```javascript
@@ -294,3 +315,8 @@ builder.onAggregate = function(obj) {
     
 };
 ```
+
+## License
+
+MIT
+<petersirka@gmail.com>

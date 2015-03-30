@@ -4,6 +4,7 @@ var O = require('mongodb').BSONPure.ObjectID;
 var NUMBER = 'number';
 var STRING = 'string';
 var BOOLEAN = 'boolean';
+var OBJECT = 'object';
 var NOOP = function(){};
 
 global.ObjectID = require('mongodb').ObjectID;
@@ -450,6 +451,77 @@ MongoBuilder.prototype.set = function(name, model, skip) {
         delete self._set._id;
 
     return self;
+};
+
+/**
+ * Diff update
+ * @param {Object} a Database object.
+ * @param {Object} b Form object.
+ * @param {String Array} keys Only this keys
+ * @return {MongoBuilder}
+ */
+MongoBuilder.prototype.diff = function(a, b, keys, skip) {
+
+    if (!keys)
+        keys = Object.keys(a);
+
+    var bl = null;
+    var self = this;
+
+    if (skip) {
+        bl = {};
+        for (var i = 0, length = keys.length; i < length; i++)
+            bl[keys[i]] = true;
+        keys = Object.keys(a);
+    }
+
+    for (var i = 0, length = keys.length; i < length; i++) {
+
+        var key = keys[i];
+
+        if (bl && bl[key])
+            continue;
+
+        if (key === '_id')
+            continue;
+
+        var valueA = a[key];
+        var valueB = b[key];
+
+        if (valueA instanceof Array || valueB instanceof Array) {
+            // compare array
+            if (JSON.stringify(valueA) !== JSON.stringify(valueB))
+                self.set(key, valueB);
+            continue;
+        }
+
+        var ta = typeof(valueA);
+        var tb = typeof(valueB);
+
+        if (ta !== OBJECT) {
+
+            if (valueA !== valueB)
+                self.set(key, valueB);
+
+            continue;
+        }
+
+        if (valueA instanceof ObjectID || valueB instanceof ObjectID) {
+
+            if (!valueA || !valueB) {
+                self.set(key, valueB);
+                continue;
+            }
+
+            if (valueA.toString() !== valueB.toString())
+                self.set(key, valueB);
+
+            continue;
+        }
+
+        if (JSON.stringify(valueA) !== JSON.stringify(valueB))
+            self.set(key, valueB);
+    }
 };
 
 MongoBuilder.prototype.clearFilter = function(skip, take) {
