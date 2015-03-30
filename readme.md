@@ -167,10 +167,10 @@ var form = {};
 builder.where('_id', SOME_OBJECT_ID);
 
 // Makes a differences
-builder.diff(doc, form);
 // builder.diff(doc, form, ['only', 'this', 'properties']);
 // builder.diff(doc, form, ['skip', 'this', 'properties'], true);
-builder.updateOne();
+if (builder.diff(doc, form)) 
+    builder.updateOne();
 ```
 
 ### Deleting

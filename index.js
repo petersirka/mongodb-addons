@@ -459,7 +459,7 @@ MongoBuilder.prototype.set = function(name, model, skip) {
  * @param {Object} a Database object.
  * @param {Object} b Form object.
  * @param {String Array} keys Only this keys
- * @return {MongoBuilder}
+ * @return {Boolean} Returns whether is change or no.
  */
 MongoBuilder.prototype.diff = function(a, b, keys, skip) {
 
@@ -468,6 +468,7 @@ MongoBuilder.prototype.diff = function(a, b, keys, skip) {
 
     var bl = null;
     var self = this;
+    var is = false;
 
     if (skip) {
         bl = {};
@@ -494,8 +495,10 @@ MongoBuilder.prototype.diff = function(a, b, keys, skip) {
 
         if (valueA instanceof Array || valueB instanceof Array) {
             // compare array
-            if (JSON.stringify(valueA) !== JSON.stringify(valueB))
-                self.set(key, valueB);
+            if (JSON.stringify(valueA) === JSON.stringify(valueB))
+                continue;
+            is = true;
+            self.set(key, valueB);
             continue;
         }
 
@@ -504,9 +507,11 @@ MongoBuilder.prototype.diff = function(a, b, keys, skip) {
 
         if (ta !== OBJECT) {
 
-            if (valueA !== valueB)
-                self.set(key, valueB);
+            if (valueA === valueB)
+                continue;
 
+            is = true;
+            self.set(key, valueB);
             continue;
         }
 
@@ -516,19 +521,26 @@ MongoBuilder.prototype.diff = function(a, b, keys, skip) {
         if (valueA instanceof ObjectID || valueB instanceof ObjectID) {
 
             if (!valueA || !valueB) {
+                is = true;
                 self.set(key, valueB);
                 continue;
             }
 
-            if (valueA.toString() !== valueB.toString())
+            if (valueA.toString() !== valueB.toString()) {
+                is = true;
                 self.set(key, valueB);
+            }
 
             continue;
         }
 
-        if (JSON.stringify(valueA) !== JSON.stringify(valueB))
-            self.set(key, valueB);
+        if (JSON.stringify(valueA) === JSON.stringify(valueB))
+            continue;
+
+        is = true;
+        self.set(key, valueB);
     }
+    return is;
 };
 
 MongoBuilder.prototype.clearFilter = function(skip, take) {
