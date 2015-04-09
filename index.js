@@ -1,6 +1,5 @@
 var Cursor = require('mongodb').Cursor;
 var Util = require('util');
-var O = require('mongodb').BSONPure.ObjectID;
 var NUMBER = 'number';
 var STRING = 'string';
 var FUNCTION = 'function';
@@ -116,9 +115,11 @@ ObjectID.parse = function(value, isArray) {
         return value;
     if (isArray || value instanceof Array)
         return ObjectID.parseArray(value);
-    if (O.isValid(value))
+    try {
         return new ObjectID(value);
-    return null;
+    } catch (e) {
+        return null;
+    }
 };
 
 ObjectID.parseArray = function(value) {
