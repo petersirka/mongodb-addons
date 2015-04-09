@@ -762,9 +762,38 @@ MongoBuilder.prototype.findArrayCount = function(collection, fields, callback) {
     return self;
 };
 
+MongoBuilder.prototype.findCountSync = function(collection, fields) {
+    var self = this;
+    return function(callback) {
+        var cursor = self.findArrayCount(collection, fields);
+        cursor.toArray(callback);
+    };
+};
+
 MongoBuilder.prototype.findArray = function(collection, fields, callback) {
+
+    if (typeof(fields) === 'function') {
+        callback = fields;
+        fields = undefined;
+    }
+
     this.find(collection, fields).toArray(callback);
     return this;
+};
+
+MongoBuilder.prototype.findSync = function(collection, fields) {
+    var self = this;
+    return function(callback) {
+        var cursor = self.find(collection, fields);
+        cursor.toArray(callback);
+    };
+};
+
+MongoBuilder.prototype.countSync = function(collection) {
+    var self = this;
+    return function(callback) {
+        self.count(collection, callback);
+    };
 };
 
 MongoBuilder.prototype.count = function(collection, callback) {
@@ -820,6 +849,13 @@ MongoBuilder.prototype.findOne = function(collection, fields, callback) {
     return self;
 };
 
+MongoBuilder.prototype.findOneSync = function(collection, fields) {
+    var self = this;
+    return function(callback) {
+        self.findOne(collection, fields, callback);
+    };
+};
+
 MongoBuilder.prototype.insert = function(collection, options, callback) {
     var self = this;
 
@@ -838,6 +874,13 @@ MongoBuilder.prototype.insert = function(collection, options, callback) {
 
     collection.insert.apply(collection, arg);
     return self;
+};
+
+MongoBuilder.prototype.insertSync = function(collection, options) {
+    var self = this;
+    return function(callback) {
+        self.insert(collection, options, callback);
+    };
 };
 
 MongoBuilder.prototype.update = function(collection, options, callback) {
@@ -871,6 +914,13 @@ MongoBuilder.prototype.update = function(collection, options, callback) {
     return self;
 };
 
+MongoBuilder.prototype.updateSync = function(collection, options) {
+    var self = this;
+    return function(callback) {
+        self.update(collection, options, callback);
+    };
+};
+
 MongoBuilder.prototype.updateOne = function(collection, options, callback) {
 
     var self = this;
@@ -901,6 +951,13 @@ MongoBuilder.prototype.updateOne = function(collection, options, callback) {
     return self;
 };
 
+MongoBuilder.prototype.updateOneSync = function(collection, options) {
+    var self = this;
+    return function(callback) {
+        self.updateOne(collection, options, callback);
+    };
+};
+
 MongoBuilder.prototype.remove = function(collection, options, callback) {
     var self = this;
 
@@ -919,6 +976,13 @@ MongoBuilder.prototype.remove = function(collection, options, callback) {
 
     collection.remove.apply(collection, arg);
     return self;
+};
+
+MongoBuilder.prototype.removeSync = function(collection, options) {
+    var self = this;
+    return function(callback) {
+        self.remove(collection, options, callback);
+    };
 };
 
 MongoBuilder.prototype.removeOne = function(collection, options, callback) {
@@ -949,6 +1013,13 @@ MongoBuilder.prototype.removeOne = function(collection, options, callback) {
 
     collection.remove.apply(collection, arg);
     return self;
+};
+
+MongoBuilder.prototype.removeOneSync = function(collection, options) {
+    var self = this;
+    return function(callback) {
+        self.removeOne(collection, options, callback);
+    };
 };
 
 MongoBuilder.prototype.getFilter = function() {
@@ -1026,6 +1097,13 @@ MongoBuilder.prototype.aggregate = function(collection, options, callback) {
         collection.aggregate(pipeline, callback);
 
     return self;
+};
+
+MongoBuilder.prototype.aggregateSync = function(collection, options, callback) {
+    var self = this;
+    return function(callback) {
+        self.aggregate(collection, options, callback);
+    };
 };
 
 MongoBuilder.prototype.group = function(id, path) {
