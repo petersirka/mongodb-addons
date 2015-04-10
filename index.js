@@ -266,7 +266,7 @@ MongoBuilder.prototype.scope = function(name, obj) {
         self._filter['$or'].push(filter);
     }
 
-    if (self._scope === 1) {
+    if (self._scope === 2) {
         if (!self._filter['$and'])
             self._filter['$and'] = [];
         var filter = {};
@@ -361,6 +361,7 @@ MongoBuilder.prototype.merge = function(B, rewrite, onlyFilter) {
     copy(B, self, '$pop', rewrite);
     copy(B, self, '$unset', rewrite);
     copy(B, self, '$addToSet', rewrite);
+    copy(B, self, '$rename', rewrite);
 
     return self;
 };
@@ -383,9 +384,9 @@ function copy(obj, target, name, rewrite) {
     for (var i = 0, length = keys.length; i < length; i++) {
         var key = keys[i];
         if (rewrite)
-            self._upd[name][key] = obj._upd[name][key];
-        else if (self._upd[name][key] === undefined)
-            self._upd[name][key] = obj._upd[name][key];
+            target._upd[name][key] = obj._upd[name][key];
+        else if (target._upd[name][key] === undefined)
+            target._upd[name][key] = obj._upd[name][key];
     }
 }
 
@@ -419,7 +420,7 @@ MongoBuilder.prototype.unset = function(name, value) {
         self._upd = {};
     if (!self._upd.$unset)
         self._upd.$unset = {};
-    self._upd.$unset[name] = value;
+    self._upd.$unset[name] = arguments.length === 1 ? '' : value;
     return self;
 };
 
@@ -430,6 +431,16 @@ MongoBuilder.prototype.push = function(name, value) {
     if (!self._upd.$push)
         self._upd.$push = {};
     self._upd.$push[name] = value;
+    return self;
+};
+
+MongoBuilder.prototype.rename = function(name, value) {
+    var self = this;
+    if (!self._upd)
+        self._upd = {};
+    if (!self._upd.$rename)
+        self._upd.$rename = {};
+    self._upd.$rename[name] = value;
     return self;
 };
 
@@ -497,7 +508,7 @@ MongoBuilder.prototype.set = function(name, model, skip) {
         return self;
     }
 
-    Util._extend(self._upd.$set, model);
+    Util._extend(self._upd.$set, name);
 
     if (self._upd.$set._id)
         delete self._upd.$set._id;
@@ -692,7 +703,7 @@ MongoBuilder.prototype.between = function(name, valueA, valueB) {
         a = valueA;
         b = valueB;
     }
-    return this.scope(name, { '$lte': a, '$gte': b });
+    return this.scope(name, { '$gte': a, '$lte': b });
 };
 
 MongoBuilder.prototype.like = function(name, value) {
