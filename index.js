@@ -187,6 +187,7 @@ function MongoBuilder(skip, take) {
     this._agg = null;
     this._inc = null;
     this._set = null;
+    this._upd = null;
     this.onFilter = null;
     this.onUpdate = null;
     this.onAggregate = null;
@@ -417,9 +418,39 @@ MongoBuilder.prototype.and = function() {
     return self;
 };
 
-MongoBuilder.prototype.set = function(name, model, skip) {
+MongoBuilder.prototype.unset = function(name, value) {
     var self = this;
+    if (!self._upd)
+        self._upd = {};
+    if (!self._upd.$unset)
+        self._upd.$unset = {};
+    self._upd.$unset[name] = value;
+    return self;
+};
 
+MongoBuilder.prototype.push = function(name, value) {
+    var self = this;
+    if (!self._upd)
+        self._upd = {};
+    if (!self._upd.$push)
+        self._upd.$push = {};
+    self._upd.$push[name] = value;
+    return self;
+};
+
+MongoBuilder.prototype.addToSet = function(name, value) {
+    var self = this;
+    if (!self._upd)
+        self._upd = {};
+    if (!self._upd.$addToSet)
+        self._upd.$addToSet = {};
+    self._upd.$addToSet[name] = value;
+    return self;
+};
+
+MongoBuilder.prototype.set = function(name, model, skip) {
+
+    var self = this;
     if (self._set === null)
         self._set = {};
 
