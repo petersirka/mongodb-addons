@@ -133,6 +133,12 @@ builder.set('firstname', 'Peter');
 builder.set({ firstname: 'Peter', lastname: 'Širka' });
 builder.inc('countview', 1);
 
+// builder.push(name, value)
+// builder.pull(name, value)
+// builder.addToSet(name, value)
+// builder.pop(name, value)
+// builder.unset(name, value)
+
 // Updates only age field
 // _id is skipped automatically
 builder.set({ _id: ObjectID('..'), firstname: 'Peter' lastname: 'Širka', age: 30 }, ['age']);
@@ -289,6 +295,27 @@ newbuilder.where('firstname', 'Peter');
 
 builder.merge(newbuilder);
 // builder.merge(builder, [rewrite], [onlyFilter]);
+```
+
+### Generators
+
+```javascript
+var builder = new MongoBuilder();
+
+// builder.$$findCount(collection, [fields]);
+// builder.$$find(collection, [fields]);
+// builder.$$count(collection);
+// builder.$$findOne(collection, [fields]);
+// builder.$$insert(collection, [options]);
+// builder.$$update(collection, [options]);
+// builder.$$updateOne(collection, [options]);
+// builder.$$remove(collection, [options]);
+// builder.$$removeOne(collection, [options]);
+// builder.$$aggregate(collection, [options]);
+
+// Total.js example:
+var users = yield sync(builder.$$find(DATABASE('users')))();
+console.log(users);
 ```
 
 ### Extra

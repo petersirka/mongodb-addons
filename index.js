@@ -185,8 +185,6 @@ function MongoBuilder(skip, take) {
     this._take = take >= 0 ? take : 0;
     this._scope = 0;
     this._agg = null;
-    this._inc = null;
-    this._set = null;
     this._upd = null;
     this.onFilter = null;
     this.onUpdate = null;
@@ -303,12 +301,8 @@ MongoBuilder.prototype.clone = function(onlyFilter) {
     B._scope = self._scope;
 
     if (!onlyFilter) {
-
-        if (self._inc)
-            B._inc = Util._extend({}, self._inc);
-
-        if (self._set)
-            B._set = Util._extend({}, self._set);
+        if (self._upd)
+            B._upd = Util._extend({}, self._upd);
     }
 
     return B;
@@ -357,47 +351,48 @@ MongoBuilder.prototype.merge = function(B, rewrite, onlyFilter) {
         }
     }
 
-    if (onlyFilter)
+    if (onlyFilter || !B._upd)
         return self;
 
-    if (B._set) {
-        keys = Object.keys(B._set);
-
-        if (self._set)
-            self._set = {};
-
-        for (var i = 0, length = keys.length; i < length; i++) {
-            var key = keys[i];
-            if (rewrite)
-                self._set[key] = B._set[key];
-            else if (self._set[key] === undefined)
-                self._set[key] = B._set[key];
-        }
-    }
-
-    if (B._inc) {
-        keys = Object.keys(B._inc);
-
-        if (self._inc)
-            self._inc = {};
-
-        for (var i = 0, length = keys.length; i < length; i++) {
-            var key = keys[i];
-            if (rewrite)
-                self._inc[key] = B._inc[key];
-            else if (self._inc[key] === undefined)
-                self._inc[key] = B._inc[key];
-        }
-    }
+    copy(B, self, '$set', rewrite);
+    copy(B, self, '$inc', rewrite);
+    copy(B, self, '$push', rewrite);
+    copy(B, self, '$pull', rewrite);
+    copy(B, self, '$pop', rewrite);
+    copy(B, self, '$unset', rewrite);
+    copy(B, self, '$addToSet', rewrite);
 
     return self;
 };
 
+function copy(obj, target, name, rewrite) {
+
+    if (!obj._upd[name])
+        return;
+
+    var keys = Object.keys(obj._upd[name]);
+    if (keys.length === 0)
+        return;
+
+    if (!target._upd)
+        target._upd = {};
+
+    if (!target._upd[name])
+        target._upd[name] = {};
+
+    for (var i = 0, length = keys.length; i < length; i++) {
+        var key = keys[i];
+        if (rewrite)
+            self._upd[name][key] = obj._upd[name][key];
+        else if (self._upd[name][key] === undefined)
+            self._upd[name][key] = obj._upd[name][key];
+    }
+}
+
 MongoBuilder.prototype.destroy = function() {
     var self = this;
     self._filter = null;
-    self._set = null;
-    self._inc = null;
+    self._upd = null;
     self._agg = null;
     return self;
 };
@@ -438,6 +433,26 @@ MongoBuilder.prototype.push = function(name, value) {
     return self;
 };
 
+MongoBuilder.prototype.pull = function(name, value) {
+    var self = this;
+    if (!self._upd)
+        self._upd = {};
+    if (!self._upd.$pull)
+        self._upd.$pull = {};
+    self._upd.$pull[name] = value;
+    return self;
+};
+
+MongoBuilder.prototype.pop = function(name, value) {
+    var self = this;
+    if (!self._upd)
+        self._upd = {};
+    if (!self._upd.$pop)
+        self._upd.$pop = {};
+    self._upd.$pop[name] = value;
+    return self;
+};
+
 MongoBuilder.prototype.addToSet = function(name, value) {
     var self = this;
     if (!self._upd)
@@ -451,13 +466,17 @@ MongoBuilder.prototype.addToSet = function(name, value) {
 MongoBuilder.prototype.set = function(name, model, skip) {
 
     var self = this;
-    if (self._set === null)
-        self._set = {};
+
+    if (!self._upd)
+        self._upd = {};
+
+    if (!self._upd.$set)
+        self._upd.$set = {};
 
     var type = typeof(name);
 
     if (type === 'string') {
-        self._set[name] = model;
+        self._upd.$set[name] = model;
         return self;
     }
 
@@ -469,19 +488,19 @@ MongoBuilder.prototype.set = function(name, model, skip) {
                 continue;
             if (skip) {
                 if (model.indexOf(key) === -1)
-                    self._set[key] = name[key];
+                    self._upd.$set[key] = name[key];
             } else {
                 if (model.indexOf(key) !== -1)
-                    self._set[key] = name[key];
+                    self._upd.$set[key] = name[key];
             }
         }
         return self;
     }
 
-    Util._extend(self._set, model);
+    Util._extend(self._upd.$set, model);
 
-    if (self._set._id)
-        delete self._set._id;
+    if (self._upd.$set._id)
+        delete self._upd.$set._id;
 
     return self;
 };
@@ -595,12 +614,21 @@ MongoBuilder.prototype.clearAggregate = function() {
 };
 
 MongoBuilder.prototype.clearSet = function() {
-    this._set = null;
+    if (!this._upd)
+        return this;
+    delete this._upd.$set;
+    return this;
+};
+
+MongoBuilder.prototype.clearUpd = MongoBuilder.prototype.clearUpdate = function() {
+    this._upd = null;
     return this;
 };
 
 MongoBuilder.prototype.clearInc = function() {
-    this._inc = null;
+    if (!this._upd)
+        return this;
+    delete this._upd.$inc;
     return this;
 };
 
@@ -611,8 +639,7 @@ MongoBuilder.prototype.clear = function(skip, take) {
     self._skip = self.parseInt(skip);
     self._take = self.parseInt(take);
     self._scope = 0;
-    self._inc = null;
-    self._set = null;
+    self._upd = null;
     self._agg = null;
     return self;
 };
@@ -631,15 +658,18 @@ MongoBuilder.prototype.parseInt = function(num) {
 MongoBuilder.prototype.inc = function(name, model) {
     var self = this;
 
-    if (self._inc === null)
-        self._inc = {};
+    if (!this._upd)
+        this._upd = {};
+
+    if (!self._upd.$inc)
+        self._upd.$inc = {};
 
     if (typeof(name) === 'string') {
-        self._inc[name] = model;
+        self._upd.$inc[name] = model;
         return self;
     }
 
-    Util._extend(self._inc, model);
+    Util._extend(self._upd.$inc, model);
     return self;
 };
 
@@ -715,11 +745,8 @@ MongoBuilder.prototype.save = function() {
     options.take = self._take;
     options.skip = self._skip;
 
-    if (self._inc)
-        options.inc = self._inc;
-
-    if (self._set)
-        options.set = self._set;
+    if (self._upd)
+        options.upd = self._upd;
 
     if (self._agg)
         options.agg = self._agg;
@@ -737,18 +764,14 @@ MongoBuilder.prototype.load = function(value) {
     self._filter = value.filter;
     self._take = self.parseInt(value.take);
     self._skip = self.parseInt(value.skip);
-    self._set = value.set;
-    self._inc = value.inc;
+    self._upd = value.upd;
     self._agg = value.agg;
 
     if (typeof(self._filter) !== 'object' || self._filter === null || self._filter === undefined)
         self._filter = {};
 
-    if (typeof(self._set) !== 'object' || self._set === undefined)
-        self._set = null;
-
-    if (typeof(self._inc) !== 'object' || self._inc === undefined)
-        self._inc = null;
+    if (typeof(self._upd) !== 'object' || self._upd === undefined)
+        self._upd = null;
 
     if (typeof(self._agg) !== 'object' || self._agg === undefined)
         self._agg = null;
@@ -793,7 +816,7 @@ MongoBuilder.prototype.findArrayCount = function(collection, fields, callback) {
     return self;
 };
 
-MongoBuilder.prototype.findCountSync = function(collection, fields) {
+MongoBuilder.prototype.$$findCount = function(collection, fields) {
     var self = this;
     return function(callback) {
         var cursor = self.findArrayCount(collection, fields);
@@ -812,7 +835,7 @@ MongoBuilder.prototype.findArray = function(collection, fields, callback) {
     return this;
 };
 
-MongoBuilder.prototype.findSync = function(collection, fields) {
+MongoBuilder.prototype.$$find = function(collection, fields) {
     var self = this;
     return function(callback) {
         var cursor = self.find(collection, fields);
@@ -820,7 +843,7 @@ MongoBuilder.prototype.findSync = function(collection, fields) {
     };
 };
 
-MongoBuilder.prototype.countSync = function(collection) {
+MongoBuilder.prototype.$$count = function(collection) {
     var self = this;
     return function(callback) {
         self.count(collection, callback);
@@ -880,7 +903,7 @@ MongoBuilder.prototype.findOne = function(collection, fields, callback) {
     return self;
 };
 
-MongoBuilder.prototype.findOneSync = function(collection, fields) {
+MongoBuilder.prototype.$$findOne = MongoBuilder.prototype.$$one = function(collection, fields) {
     var self = this;
     return function(callback) {
         self.findOne(collection, fields, callback);
@@ -907,7 +930,7 @@ MongoBuilder.prototype.insert = function(collection, options, callback) {
     return self;
 };
 
-MongoBuilder.prototype.insertSync = function(collection, options) {
+MongoBuilder.prototype.$$insert = function(collection, options) {
     var self = this;
     return function(callback) {
         self.insert(collection, options, callback);
@@ -945,7 +968,7 @@ MongoBuilder.prototype.update = function(collection, options, callback) {
     return self;
 };
 
-MongoBuilder.prototype.updateSync = function(collection, options) {
+MongoBuilder.prototype.$$update = function(collection, options) {
     var self = this;
     return function(callback) {
         self.update(collection, options, callback);
@@ -982,7 +1005,7 @@ MongoBuilder.prototype.updateOne = function(collection, options, callback) {
     return self;
 };
 
-MongoBuilder.prototype.updateOneSync = function(collection, options) {
+MongoBuilder.prototype.$$updateOne = function(collection, options) {
     var self = this;
     return function(callback) {
         self.updateOne(collection, options, callback);
@@ -1009,7 +1032,7 @@ MongoBuilder.prototype.remove = function(collection, options, callback) {
     return self;
 };
 
-MongoBuilder.prototype.removeSync = function(collection, options) {
+MongoBuilder.prototype.$$remove = function(collection, options) {
     var self = this;
     return function(callback) {
         self.remove(collection, options, callback);
@@ -1046,7 +1069,7 @@ MongoBuilder.prototype.removeOne = function(collection, options, callback) {
     return self;
 };
 
-MongoBuilder.prototype.removeOneSync = function(collection, options) {
+MongoBuilder.prototype.$$removeOne = function(collection, options) {
     var self = this;
     return function(callback) {
         self.removeOne(collection, options, callback);
@@ -1063,11 +1086,7 @@ MongoBuilder.prototype.getFilter = function() {
 
 MongoBuilder.prototype.getUpdate = function() {
     var self = this;
-    var upd = {};
-    if (self._set)
-        upd = { '$set': self._set };
-    if (self._inc)
-        upd = { '$inc': self._inc };
+    var upd = self._upd;
     if (self.onUpdate)
         self.onUpdate(upd);
     return upd;
@@ -1076,8 +1095,8 @@ MongoBuilder.prototype.getUpdate = function() {
 MongoBuilder.prototype.getInsert = function() {
     var self = this;
     var ins = {};
-    if (self._set)
-        ins = self._set;
+    if (self._upd && self._upd.$set)
+        ins = self._upd.$set;
     if (!ins._id)
         ins._id = new ObjectID();
     if (self.onInsert)
@@ -1130,7 +1149,7 @@ MongoBuilder.prototype.aggregate = function(collection, options, callback) {
     return self;
 };
 
-MongoBuilder.prototype.aggregateSync = function(collection, options, callback) {
+MongoBuilder.prototype.$$aggregate = function(collection, options) {
     var self = this;
     return function(callback) {
         self.aggregate(collection, options, callback);
