@@ -36,7 +36,7 @@ GridStore.writeFile(DB, new ObjectID(), '/path/file.txt', 'file.txt', { 'ME':1 }
 ```
 
 ```javascript
-GridStore.readFile(DB, 'object-id', function(fs, close) {
+GridStore.readFile(DB, 'object-id', function(err, fs, close) {
     var writer = fs.createWriteStream('/path/file.txt');
     fs.stream(true).on('close', close).pipe(writer);
 });

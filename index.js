@@ -1281,6 +1281,32 @@ function readFile(db, id, callback) {
     });
 }
 
+function readToStream(db, id, stream, callback) {
+    var reader = new GridStore(db, ObjectID.parse(id), 'r');
+    reader.open(function(err, fs) {
+
+        if (err) {
+            reader.close();
+            reader = null;
+            if (callback)
+                return callback(err);
+            return;
+        }
+
+        fs.stream(true).pipe(stream).on('close', function() {
+            reader.close();
+            reader = null;
+            if (callback)
+                callback(null);
+        });
+
+        callback(null, fs, function() {
+            reader.close();
+            reader = null;
+        });
+    });
+}
+
 function writeFile(db, id, filename, name, meta, callback) {
 
     if (!callback)
