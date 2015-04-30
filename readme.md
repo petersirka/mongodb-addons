@@ -1,3 +1,5 @@
+[![NPM version][npm-version-image]][npm-url] [![NPM downloads][npm-downloads-image]][npm-url] [![MIT License][license-image]][license-url]
+
 # MongoDB addons
 
 `npm install mongodb-addons`
@@ -343,7 +345,9 @@ builder.onAggregate = function(obj) {
 };
 ```
 
-## License
+[license-image]: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
+[license-url]: license.txt
 
-MIT
-<petersirka@gmail.com>
+[npm-url]: https://npmjs.org/package/mongodb-addons
+[npm-version-image]: https://img.shields.io/npm/v/mongodb-addons.svg?style=flat
+[npm-downloads-image]: https://img.shields.io/npm/dm/mongodb-addons.svg?style=flat
