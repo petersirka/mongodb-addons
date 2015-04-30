@@ -4,6 +4,8 @@
 
 `npm install mongodb-addons`
 
+- Best use with [total.js - web application framework for node.js](https://www.totaljs.com)
+
 ## JOIN & MERGE
 
 ```js
