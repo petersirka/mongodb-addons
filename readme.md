@@ -122,6 +122,22 @@ builder.count(COLLECTION, function(err, count) {
 });
 ```
 
+### Inserting
+
+```javascript
+var builder = new MongoBuilder();
+
+// Values to insert
+builder.set('_id', new ObjectID());
+builder.set('firstname', 'Peter');
+builder.set({ firstname: 'Peter', lastname: 'Širka' });
+
+// Execute
+builder.insert(COLLECTION, function(err, result) {
+    console.log(result);
+});
+```
+
 ### Updating
 
 - `_id` property is skipped automatically

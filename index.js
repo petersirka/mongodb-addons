@@ -927,6 +927,11 @@ MongoBuilder.prototype.insert = function(collection, options, callback) {
     if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
         callback = NOOP;
 
+    if (typeof(options) === 'function') {
+        callback = options;
+        options = {};
+    }
+
     var arg = [];
 
     arg.push(self.getInsert());
