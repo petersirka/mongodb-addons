@@ -186,6 +186,7 @@ function MongoBuilder(skip, take) {
     this._scope = 0;
     this._agg = null;
     this._upd = null;
+    this._fields = null;
     this.onFilter = null;
     this.onUpdate = null;
     this.onAggregate = null;
@@ -610,6 +611,7 @@ MongoBuilder.prototype.clearFilter = function(skip, take) {
     self._skip = self.parseInt(skip);
     self._take = self.parseInt(take);
     self._filter = null;
+    self._fields = null;
     self._scope = 0;
     return self;
 };
@@ -652,6 +654,7 @@ MongoBuilder.prototype.clear = function(skip, take) {
     self._scope = 0;
     self._upd = null;
     self._agg = null;
+    self._fields = null;
     return self;
 };
 
@@ -669,8 +672,8 @@ MongoBuilder.prototype.parseInt = function(num) {
 MongoBuilder.prototype.inc = function(name, model) {
     var self = this;
 
-    if (!this._upd)
-        this._upd = {};
+    if (!self._upd)
+        self._upd = {};
 
     if (!self._upd.$inc)
         self._upd.$inc = {};
@@ -683,6 +686,20 @@ MongoBuilder.prototype.inc = function(name, model) {
     Util._extend(self._upd.$inc, model);
     return self;
 };
+
+MongoBuilder.prototype.field = function(name, visible) {
+    var self = this;
+    if (!self._fields)
+        self._fields = {};
+    self._fields[name] = visible === undefined ? true : visible;
+    return self;
+};
+
+MongoBuilder.prototype.fields = function() {
+    for (var i = 0; i < arguments.length; i++)
+        this.field(arguments[i]);
+    return this;
+}
 
 /**
  * End scope
@@ -762,6 +779,9 @@ MongoBuilder.prototype.save = function() {
     if (self._agg)
         options.agg = self._agg;
 
+    if (self._fields)
+        options.fields = self.fields;
+
     return JSON.stringify(options);
 };
 
@@ -777,6 +797,7 @@ MongoBuilder.prototype.load = function(value) {
     self._skip = self.parseInt(value.skip);
     self._upd = value.upd;
     self._agg = value.agg;
+    self._fields = value.fields;
 
     if (typeof(self._filter) !== 'object' || self._filter === null || self._filter === undefined)
         self._filter = {};
@@ -786,6 +807,9 @@ MongoBuilder.prototype.load = function(value) {
 
     if (typeof(self._agg) !== 'object' || self._agg === undefined)
         self._agg = null;
+
+    if (typeof(self._fields) !== 'object' || self._fields === undefined)
+        self._fields = null;
 
     return self;
 };
@@ -806,6 +830,8 @@ MongoBuilder.prototype.findArrayCount = function(collection, fields, callback) {
 
      if (fields)
         arg.push(fields);
+    else if (self._fields)
+        arg.push(self._fields);
 
     var cursor = collection.find.apply(collection, arg);
 
@@ -880,6 +906,8 @@ MongoBuilder.prototype.find = function(collection, fields) {
 
      if (fields)
         arg.push(fields);
+    else if (self._fields)
+        arg.push(self._fields);
 
     var cursor = collection.find.apply(collection, arg);
 
@@ -906,6 +934,8 @@ MongoBuilder.prototype.findOne = function(collection, fields, callback) {
 
      if (fields)
         arg.push(fields);
+    else if (self._fields)
+        arg.push(self._fields);
 
     if (callback)
         arg.push(callback);

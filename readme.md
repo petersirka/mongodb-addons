@@ -71,6 +71,10 @@ builder.where('_id', '=', '0000', true); // true === AUTOCONVERT string to Objec
 builder.where('isremoved', false); // default operator is "="
 builder.sort('age', false); // true == ascending, false == descending
 
+builder.field('age');
+builder.field('firstname');
+builder.fields('age', 'firstname', 'lastname');
+
 // builder.between(name, min, max);
 // builder.like(name, value);
 // builder.regex(name, value);
@@ -78,6 +82,8 @@ builder.sort('age', false); // true == ascending, false == descending
 // builder.and()...filter...end();
 // builder.in(name, value);
 // builder.nin(name, value);
+// builder.field(name, [visible]); --> visible is by default: true
+// builder.fields(field1, field2, field3, ...);
 // builder.where(name, operator, value);
 // builder.filter(name, operator, value); --> is same as builder.where()
 // builder.clear();
