@@ -126,6 +126,10 @@ builder.findOne(COLLECTION, function(err, doc) {
 builder.count(COLLECTION, function(err, count) {
     console.log(count);
 });
+
+builder.distinct(COLLECTION, 'KEY', function(err, docs) {
+    console.log(docs);
+});
 ```
 
 ### Inserting

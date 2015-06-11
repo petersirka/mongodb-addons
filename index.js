@@ -853,6 +853,15 @@ MongoBuilder.prototype.findArrayCount = function(collection, fields, callback) {
     return self;
 };
 
+MongoBuilder.prototype.distinct = function(collection, key, callback) {
+    var self = this;
+    var arg = [key];
+    arg.push(self.getFilter());
+    arg.push(callback);
+    collection.distinct.apply(collection, arg);
+    return self;
+};
+
 MongoBuilder.prototype.$$findCount = function(collection, fields) {
     var self = this;
     return function(callback) {
@@ -884,6 +893,13 @@ MongoBuilder.prototype.$$count = function(collection) {
     var self = this;
     return function(callback) {
         self.count(collection, callback);
+    };
+};
+
+MongoBuilder.prototype.$$distinct = function(collection, key) {
+    var self = this;
+    return function(callback) {
+        self.distinct(collection, key, callback);
     };
 };
 
