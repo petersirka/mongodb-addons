@@ -10,104 +10,114 @@ var NOOP = function(){};
 global.ObjectID = require('mongodb').ObjectID;
 global.GridStore = require('mongodb').GridStore;
 
+function each(self, item, doc) {
+
+    if (doc === null)
+        return;
+
+    var value = doc[item.source];
+    if (value === null || value === undefined)
+        return;
+
+    if (value instanceof Array) {
+        for (var i = 0, length = value.length; i < length; i++) {
+            if (item.cache[value[i]])
+                return;
+            item.cache[value[i]] = true;
+            item.relation.push(value[i]);
+        }
+        return;
+    }
+
+    if (!item.cache[value]) {
+        item.cache[value] = true;
+        item.relation.push(value);
+    }
+
+}
+
 Cursor.prototype.join = function(source, target, collection, fields, filter) {
-
     var self = this;
-
     if (!self.pop)
         self.pop = [];
-
-    var cache = {};
-    var item = { relation: [], source: source, target: target, collection: collection, fields: fields === undefined ? null : fields, filter: filter };
-
-    self.each(function(err, doc) {
-        if (doc === null)
-            return;
-        var value = doc[item.source];
-        if (value !== null && value !== undefined) {
-            if (value instanceof Array) {
-                for (var i = 0, length = value.length; i < length; i++) {
-                    if (cache[value[i]])
-                        continue;
-                    cache[value[i]] = true;
-                    item.relation.push(value[i]);
-                }
-            }
-            else {
-                if (!cache[value]) {
-                    cache[value] = true;
-                    item.relation.push(value);
-                }
-            }
-        }
-    });
-
-    self.pop.push(item);
+    self.pop.push({ relation: [], source: source, target: target, collection: collection, fields: fields === undefined ? null : fields, filter: filter, cache: {}});
     return self;
 };
 
 Cursor.prototype.merge = function(db, callback) {
 
     var self = this;
+    var rows = [];
 
-    self.toArray(function(err, rows) {
+    self.each(function(err, doc) {
 
         if (err) {
             callback(err, null);
             return;
         }
 
-        var sets = rows.slice(0);
+        if (doc === null) {
+            self.$merge(db, rows, callback);
+            return;
+        }
 
-        var done = function() {
-            for (var a = 0, al = sets.length; a < al; a++) {
-                var row = sets[a];
-                for (var b = 0, bl = self.pop.length; b < bl; b++) {
-                    var pop = self.pop[b];
-                    var source = row[pop.source];
-                    var length = source && source instanceof Array ? source.length || 0 : 0;
+        for (var i = 0, length = self.pop.length; i < length; i++)
+            each(self, self.pop[i], doc);
 
-                    if (length > 0)
-                        row[pop.target] = [];
+        rows.push(doc);
+    });
 
-                    for (var c = 0, cl = pop.result.length; c < cl; c++) {
-                        var join = pop.result[c];
-                        if (length === 0) {
-                            if (join._id.equals(source)) {
-                                sets[a][pop.target] = join;
-                                break;
-                            }
-                        } else {
-                            for (var d = 0; d < length; d++) {
-                                if (join._id.equals(source[d]))
-                                    sets[a][pop.target].push(join);
-                            }
+    return self;
+};
+
+Cursor.prototype.$merge = function(db, rows, callback) {
+    var self = this;
+    var sets = rows.slice(0);
+    var done = function() {
+        for (var a = 0, al = sets.length; a < al; a++) {
+            var row = sets[a];
+            for (var b = 0, bl = self.pop.length; b < bl; b++) {
+                var pop = self.pop[b];
+                var source = row[pop.source];
+                var length = source && source instanceof Array ? source.length || 0 : 0;
+
+                if (length > 0)
+                    row[pop.target] = [];
+
+                for (var c = 0, cl = pop.result.length; c < cl; c++) {
+                    var join = pop.result[c];
+                    if (length === 0) {
+                        if (join._id.equals(source)) {
+                            sets[a][pop.target] = join;
+                            break;
+                        }
+                    } else {
+                        for (var d = 0; d < length; d++) {
+                            if (join._id.equals(source[d]))
+                                sets[a][pop.target].push(join);
                         }
                     }
                 }
             }
-            callback(null, sets);
-        };
+        }
+        callback(null, sets);
+    };
 
-        self.pop.wait(function(item, next) {
+    self.pop.wait(function(item, next) {
 
-            var filter = item.filter ? Util._extend({}, item.filter) : {};
-            var length = item.relation.length;
-            if (length <= 1)
-                filter._id = length === 1 ? item.relation[0] : null;
-            else
-                filter._id = { '$in': item.relation };
+        var filter = item.filter ? Util._extend({}, item.filter) : {};
+        var length = item.relation.length;
+        if (length <= 1)
+            filter._id = length === 1 ? item.relation[0] : null;
+        else
+            filter._id = { '$in': item.relation };
 
-            db.collection(item.collection).find(filter, item.fields).limit(length).toArray(function(err, docs) {
-                item.result = docs;
-                next();
-            });
+        db.collection(item.collection).find(filter, item.fields).limit(length).toArray(function(err, docs) {
+            item.result = docs;
+            next();
+        });
 
-        }, done);
-
-    });
-
-    return self;
+    }, done);
 };
 
 ObjectID.parse = function(value, isArray) {
