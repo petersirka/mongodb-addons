@@ -701,7 +701,7 @@ MongoBuilder.prototype.field = function(name, visible) {
     var self = this;
     if (!self._fields)
         self._fields = {};
-    self._fields[name] = visible === undefined ? true : visible;
+    self._fields[name] = visible || visible === undefined ? 1 : 0;
     return self;
 };
 
@@ -753,6 +753,12 @@ MongoBuilder.prototype.filter = function(name, operator, value, isID) {
     }
 
     var self = this;
+
+    if (value === true && operator.length > 5) {
+        value = operator;
+        operator = '=';
+        isID = true;
+    }
 
     if (isID)
         value = ObjectID.parse(value);
@@ -809,16 +815,16 @@ MongoBuilder.prototype.load = function(value) {
     self._agg = value.agg;
     self._fields = value.fields;
 
-    if (typeof(self._filter) !== 'object' || self._filter === null || self._filter === undefined)
+    if (typeof(self._filter) !== OBJECT || self._filter === null || self._filter === undefined)
         self._filter = {};
 
-    if (typeof(self._upd) !== 'object' || self._upd === undefined)
+    if (typeof(self._upd) !== OBJECT || self._upd === undefined)
         self._upd = null;
 
-    if (typeof(self._agg) !== 'object' || self._agg === undefined)
+    if (typeof(self._agg) !== OBJECT || self._agg === undefined)
         self._agg = null;
 
-    if (typeof(self._fields) !== 'object' || self._fields === undefined)
+    if (typeof(self._fields) !== OBJECT || self._fields === undefined)
         self._fields = null;
 
     return self;
@@ -831,17 +837,17 @@ MongoBuilder.prototype.findArrayCount = function(collection, fields, callback) {
     var skip = self._skip;
     var arg = [];
 
-    if (typeof(fields) === 'function') {
+    if (typeof(fields) === FUNCTION) {
         callback = fields;
         fields = undefined;
     }
 
     arg.push(self.getFilter());
 
-     if (fields)
-        arg.push(fields);
+     if (typeof(fields) === OBJECT)
+        arg.push({ fields: fields });
     else if (self._fields)
-        arg.push(self._fields);
+        arg.push({ fields: self._fields });
 
     var cursor = collection.find.apply(collection, arg);
 
@@ -882,12 +888,12 @@ MongoBuilder.prototype.$$findCount = function(collection, fields) {
 
 MongoBuilder.prototype.findArray = function(collection, fields, callback) {
 
-    if (typeof(fields) === 'function') {
+    if (typeof(fields) === FUNCTION) {
         callback = fields;
         fields = undefined;
     }
 
-    this.find(collection, fields).toArray(callback);
+    this.find(collection, { fields: fields }).toArray(callback);
     return this;
 };
 
@@ -930,10 +936,10 @@ MongoBuilder.prototype.find = function(collection, fields) {
     var arg = [];
     arg.push(self.getFilter());
 
-     if (fields)
-        arg.push(fields);
+     if (typeof(fields) === OBJECT)
+        arg.push({ fields: fields });
     else if (self._fields)
-        arg.push(self._fields);
+        arg.push({ fields: self._fields });
 
     var cursor = collection.find.apply(collection, arg);
 
@@ -956,12 +962,18 @@ MongoBuilder.prototype.findOne = function(collection, fields, callback) {
     var self = this;
     var arg = [];
 
+    if (typeof(fields) === FUNCTION) {
+        var tmp = callback;
+        callback = fields;
+        fields = undefined;
+    }
+
     arg.push(self.getFilter());
 
-     if (fields)
-        arg.push(fields);
+     if (typeof(fields) === OBJECT)
+        arg.push({ fields: fields });
     else if (self._fields)
-        arg.push(self._fields);
+        arg.push({ fields: self._fields });
 
     if (callback)
         arg.push(callback);
@@ -980,10 +992,10 @@ MongoBuilder.prototype.$$findOne = MongoBuilder.prototype.$$one = function(colle
 MongoBuilder.prototype.insert = function(collection, options, callback) {
     var self = this;
 
-    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+    if ((options === undefined && callback === undefined) || (typeof(options) === OBJECT && callback === undefined))
         callback = NOOP;
 
-    if (typeof(options) === 'function') {
+    if (typeof(options) === FUNCTION) {
         callback = options;
         options = {};
     }
@@ -1012,10 +1024,10 @@ MongoBuilder.prototype.$$insert = function(collection, options) {
 MongoBuilder.prototype.update = function(collection, options, callback) {
     var self = this;
 
-    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+    if ((options === undefined && callback === undefined) || (typeof(options) === OBJECT && callback === undefined))
         callback = NOOP;
 
-    if (typeof(options) === 'function') {
+    if (typeof(options) === FUNCTION) {
         callback = options;
         options = {};
     }
@@ -1051,10 +1063,10 @@ MongoBuilder.prototype.updateOne = function(collection, options, callback) {
 
     var self = this;
 
-    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+    if ((options === undefined && callback === undefined) || (typeof(options) === OBJECT && callback === undefined))
         callback = NOOP;
 
-    if (typeof(options) === 'function') {
+    if (typeof(options) === FUNCTION) {
         callback = options;
         options = {};
     }
@@ -1087,7 +1099,7 @@ MongoBuilder.prototype.$$updateOne = function(collection, options) {
 MongoBuilder.prototype.remove = function(collection, options, callback) {
     var self = this;
 
-    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+    if ((options === undefined && callback === undefined) || (typeof(options) === OBJECT && callback === undefined))
         callback = NOOP;
 
     var arg = [];
@@ -1114,10 +1126,10 @@ MongoBuilder.prototype.$$remove = function(collection, options) {
 MongoBuilder.prototype.removeOne = function(collection, options, callback) {
     var self = this;
 
-    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+    if ((options === undefined && callback === undefined) || (typeof(options) === OBJECT && callback === undefined))
         callback = NOOP;
 
-    if (typeof(options) === 'function') {
+    if (typeof(options) === FUNCTION) {
         callback = options;
         options = {};
     }
@@ -1180,10 +1192,10 @@ MongoBuilder.prototype.aggregate = function(collection, options, callback) {
 
     var self = this;
 
-    if ((options === undefined && callback === undefined) || (typeof(options) === 'object' && callback === undefined))
+    if ((options === undefined && callback === undefined) || (typeof(options) === OBJECT && callback === undefined))
         callback = NOOP;
 
-    if (typeof(options) === 'function') {
+    if (typeof(options) === FUNCTION) {
         callback = options;
         options = undefined;
     }
@@ -1373,7 +1385,7 @@ function writeFile(db, id, filename, name, meta, callback) {
     if (!callback)
         callback = NOOP;
 
-    if (typeof(meta) === 'function') {
+    if (typeof(meta) === FUNCTION) {
         var tmp = callback;
         callback = meta;
         meta = tmp;
