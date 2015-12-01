@@ -519,10 +519,17 @@ MongoBuilder.prototype.set = function(name, model, skip) {
 		return self;
 	}
 
-	Util._extend(self._upd.$set, name);
-
-	if (self._upd.$set._id)
-		delete self._upd.$set._id;
+	var keys = Object.keys(name);
+	for (var m in name) {
+		if (m[0] === '$')
+			continue;
+		if (m === '_id')
+			continue;
+		var val = name[m];
+		if (typeof(val) === 'function')
+			continue;
+		self._upd.$set[m] = val;
+	}
 
 	return self;
 };
