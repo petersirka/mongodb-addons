@@ -48,7 +48,7 @@ GridStore.writeBuffer(DB, new ObjectID(), new Buffer('File content'), 'file.txt'
 ```javascript
 GridStore.readFile(DB, 'object-id', function(err, fs, close) {
     var writer = fs.createWriteStream('/path/file.txt');
-    fs.stream(true).on('close', close).pipe(writer);
+    fs.stream(true).on('end', close).pipe(writer);
 });
 ```
 
