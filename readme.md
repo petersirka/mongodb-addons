@@ -40,6 +40,12 @@ GridStore.writeFile(DB, new ObjectID(), '/path/file.txt', 'file.txt', { 'ME':1 }
 ```
 
 ```javascript
+GridStore.writeBuffer(DB, new ObjectID(), new Buffer('File content'), 'file.txt', { 'ME':1 }, function(err) {
+    // CALLBACK IS OPTIONAL
+});
+```
+
+```javascript
 GridStore.readFile(DB, 'object-id', function(err, fs, close) {
     var writer = fs.createWriteStream('/path/file.txt');
     fs.stream(true).on('close', close).pipe(writer);
