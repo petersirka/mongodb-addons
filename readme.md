@@ -6,30 +6,6 @@
 
 - Best use with [total.js - web application framework for node.js](https://www.totaljs.com)
 
-## JOIN & MERGE
-
-```js
-
-// cursor.join('relationship-property', 'where-to-bind', 'collection-name', [fields], [additional-filter])
-// relationship-property -> is compared with ._id and values must be ObjectId()
-// cursor.merge(function(err, rows) {})
-
-db.collection('products').find().join('idcategory', 'category', 'categories-collection').merge(function(err, docs) {
-    console.log(docs);
-});
-
-// or
-
-db.collection('products').find().join('idcategory', 'category', 'categories', { name: 1 }).merge(function(err, docs) {
-    console.log(docs);
-});
-
-db.collection('products').find().join('idcategory', 'category', 'categories', { name: 1 }, { removed: false }).merge(function(err, docs) {
-    console.log(docs);
-});
-
-```
-
 ## GridStore
 - is a global variable
 
@@ -149,8 +125,8 @@ builder.set('firstname', 'Peter');
 builder.set({ firstname: 'Peter', lastname: 'Širka' });
 
 // Execute
-builder.insert(COLLECTION, function(err, result) {
-    console.log(result);
+builder.insert(COLLECTION, function(err, count) {
+    console.log(count);
 });
 ```
 
@@ -184,13 +160,13 @@ builder.set({ _id: ObjectID('..'), firstname: 'Peter' lastname: 'Širka', age: 3
 builder.set({ _id: ObjectID('..'), firstname: 'Peter' lastname: 'Širka', age: 30 }, ['age'], true);
 
 // Execute
-builder.update(COLLECTION, function(err, result) {
-    console.log(result);
+builder.update(COLLECTION, function(err, count) {
+    console.log(count);
 });
 
 // Execute
-builder.updateOne(COLLECTION, function(err, result) {
-    console.log(result);
+builder.updateOne(COLLECTION, function(err, count) {
+    console.log(count);
 });
 ```
 
@@ -224,12 +200,24 @@ var builder = new MongoBuilder();
 builder.where('age', '>', 10);
 
 // Execute
-builder.remove(COLLECTION, function(err, result) {
-    console.log(result);
+builder.remove(COLLECTION, function(err, count) {
+    console.log(count);
 });
 
-builder.removeOne(COLLECTION, function(err, result) {
-    console.log(result);
+builder.removeOne(COLLECTION, function(err, count) {
+    console.log(count);
+});
+```
+
+### Saving
+
+```javascript
+// _id is need to add manually
+builder.set('_id', 'MY_ID');
+
+// Performs save
+builder.save(COLLECTION, function(err, count) {
+    console.log(count);
 });
 ```
 
@@ -300,19 +288,6 @@ __execute aggregation__:
 builder.aggregate(COLLECTION, function(err, results) {
     console.log(results);
 });
-```
-
-### Serialization / Deserialization
-
-```javascript
-var builder = new MongoBuilder();
-
-// Filter
-builder.where('age', '>', 10);
-
-// Serialize builder to JSON
-var json = builder.save();
-builder.load(json);
 ```
 
 ### Cloning & Merging

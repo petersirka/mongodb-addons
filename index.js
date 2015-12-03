@@ -1,4 +1,3 @@
-var Cursor = require('mongodb').Cursor;
 var Util = require('util');
 var NUMBER = 'number';
 var STRING = 'string';
@@ -9,116 +8,6 @@ var NOOP = function(){};
 
 global.ObjectID = require('mongodb').ObjectID;
 global.GridStore = require('mongodb').GridStore;
-
-function each(self, item, doc) {
-
-	if (doc === null)
-		return;
-
-	var value = doc[item.source];
-	if (value === null || value === undefined)
-		return;
-
-	if (value instanceof Array) {
-		for (var i = 0, length = value.length; i < length; i++) {
-			if (item.cache[value[i]])
-				return;
-			item.cache[value[i]] = true;
-			item.relation.push(value[i]);
-		}
-		return;
-	}
-
-	if (!item.cache[value]) {
-		item.cache[value] = true;
-		item.relation.push(value);
-	}
-
-}
-
-Cursor.prototype.join = function(source, target, collection, fields, filter) {
-	var self = this;
-	if (!self.pop)
-		self.pop = [];
-	self.pop.push({ relation: [], source: source, target: target, collection: collection, fields: fields === undefined ? null : fields, filter: filter, cache: {}});
-	return self;
-};
-
-Cursor.prototype.merge = function(db, callback) {
-
-	var self = this;
-	var rows = [];
-
-	self.each(function(err, doc) {
-
-		if (err) {
-			callback(err, null);
-			return;
-		}
-
-		if (doc === null) {
-			self.$merge(db, rows, callback);
-			return;
-		}
-
-		for (var i = 0, length = self.pop.length; i < length; i++)
-			each(self, self.pop[i], doc);
-
-		rows.push(doc);
-	});
-
-	return self;
-};
-
-Cursor.prototype.$merge = function(db, rows, callback) {
-	var self = this;
-	var sets = rows.slice(0);
-	var done = function() {
-		for (var a = 0, al = sets.length; a < al; a++) {
-			var row = sets[a];
-			for (var b = 0, bl = self.pop.length; b < bl; b++) {
-				var pop = self.pop[b];
-				var source = row[pop.source];
-				var length = source && source instanceof Array ? source.length || 0 : 0;
-
-				if (length > 0)
-					row[pop.target] = [];
-
-				for (var c = 0, cl = pop.result.length; c < cl; c++) {
-					var join = pop.result[c];
-					if (length === 0) {
-						if (join._id.equals(source)) {
-							sets[a][pop.target] = join;
-							break;
-						}
-					} else {
-						for (var d = 0; d < length; d++) {
-							if (join._id.equals(source[d]))
-								sets[a][pop.target].push(join);
-						}
-					}
-				}
-			}
-		}
-		callback(null, sets);
-	};
-
-	self.pop.wait(function(item, next) {
-
-		var filter = item.filter ? Util._extend({}, item.filter) : {};
-		var length = item.relation.length;
-		if (length <= 1)
-			filter._id = length === 1 ? item.relation[0] : null;
-		else
-			filter._id = { '$in': item.relation };
-
-		db.collection(item.collection).find(filter, item.fields).limit(length).toArray(function(err, docs) {
-			item.result = docs;
-			next();
-		});
-
-	}, done);
-};
 
 ObjectID.parse = function(value, isArray) {
 	if (value instanceof ObjectID)
@@ -519,7 +408,6 @@ MongoBuilder.prototype.set = function(name, model, skip) {
 		return self;
 	}
 
-	var keys = Object.keys(name);
 	for (var m in name) {
 		if (m[0] === '$')
 			continue;
@@ -700,7 +588,27 @@ MongoBuilder.prototype.inc = function(name, model) {
 		return self;
 	}
 
-	Util._extend(self._upd.$inc, model);
+	if (name instanceof Array) {
+
+		for (var i = 0, length = name.length; i < length; i++) {
+			var key = name[i];
+			if (key[0] === '$' || key === '_id')
+				continue;
+			self._upd.$inc[key] = 1;
+		}
+
+		return self;
+	}
+
+	for (var m in name) {
+		if (m === '_id' || m[0] === '$')
+			continue;
+		var val = name[m];
+		if (typeof(val) === 'function')
+			continue;
+		self._upd.$inc[m] = val;
+	}
+
 	return self;
 };
 
@@ -785,55 +693,6 @@ MongoBuilder.prototype.filter = function(name, operator, value, isID) {
 		case '<=':
 			return self.scope(name, { '$lte': value });
 	}
-	return self;
-};
-
-MongoBuilder.prototype.save = function() {
-	var self = this;
-	var options = {};
-
-	options.filter = self._filter;
-	options.take = self._take;
-	options.skip = self._skip;
-
-	if (self._upd)
-		options.upd = self._upd;
-
-	if (self._agg)
-		options.agg = self._agg;
-
-	if (self._fields)
-		options.fields = self.fields;
-
-	return JSON.stringify(options);
-};
-
-MongoBuilder.prototype.load = function(value) {
-
-	if (typeof(value) === 'string')
-		value = JSON.parse(value);
-
-	var self = this;
-
-	self._filter = value.filter;
-	self._take = self.parseInt(value.take);
-	self._skip = self.parseInt(value.skip);
-	self._upd = value.upd;
-	self._agg = value.agg;
-	self._fields = value.fields;
-
-	if (typeof(self._filter) !== OBJECT || self._filter === null || self._filter === undefined)
-		self._filter = {};
-
-	if (typeof(self._upd) !== OBJECT || self._upd === undefined)
-		self._upd = null;
-
-	if (typeof(self._agg) !== OBJECT || self._agg === undefined)
-		self._agg = null;
-
-	if (typeof(self._fields) !== OBJECT || self._fields === undefined)
-		self._fields = null;
-
 	return self;
 };
 
@@ -1014,8 +873,15 @@ MongoBuilder.prototype.insert = function(collection, options, callback) {
 	 if (options)
 		arg.push(options);
 
-	if (callback)
-		arg.push(callback);
+	if (callback) {
+		arg.push(function(err, response) {
+			if (err) {
+				callback(err, null);
+				return;
+			}
+			callback(null, response.result.n);
+		});
+	}
 
 	collection.insert.apply(collection, arg);
 	return self;
@@ -1026,6 +892,44 @@ MongoBuilder.prototype.$$insert = function(collection, options) {
 	return function(callback) {
 		self.insert(collection, options, callback);
 	};
+};
+
+MongoBuilder.prototype.save = function(collection, options, callback) {
+	var self = this;
+
+	if ((options === undefined && callback === undefined) || (typeof(options) === OBJECT && callback === undefined))
+		callback = NOOP;
+
+	if (typeof(options) === FUNCTION) {
+		callback = options;
+		options = {};
+	}
+
+	if (!options)
+		options = {};
+
+	options.w = 1;
+
+	var arg = [];
+	var upd = self.getUpdate().$set;
+
+	arg.push(upd);
+
+	if (options)
+		arg.push(options);
+
+	if (callback) {
+		arg.push(function(err, response) {
+			if (err) {
+				callback(err, null);
+				return;
+			}
+			callback(null, response.result.n);
+		});
+	}
+
+	collection.save.apply(collection, arg);
+	return self;
 };
 
 MongoBuilder.prototype.update = function(collection, options, callback) {
@@ -1052,8 +956,15 @@ MongoBuilder.prototype.update = function(collection, options, callback) {
 	if (options)
 		arg.push(options);
 
-	if (callback)
-		arg.push(callback);
+	if (callback) {
+		arg.push(function(err, response) {
+			if (err) {
+				callback(err, null);
+				return;
+			}
+			callback(null, response.result.n);
+		});
+	}
 
 	collection.update.apply(collection, arg);
 	return self;
@@ -1089,8 +1000,15 @@ MongoBuilder.prototype.updateOne = function(collection, options, callback) {
 	arg.push(self.getUpdate());
 	arg.push(options);
 
-	if (callback)
-		arg.push(callback);
+	if (callback) {
+		arg.push(function(err, response) {
+			if (err) {
+				callback(err, null);
+				return;
+			}
+			callback(null, response.result.n);
+		});
+	}
 
 	collection.update.apply(collection, arg);
 	return self;
@@ -1116,8 +1034,15 @@ MongoBuilder.prototype.remove = function(collection, options, callback) {
 	if (options)
 		arg.push(options);
 
-	if (callback)
-		arg.push(callback);
+	if (callback) {
+		arg.push(function(err, response) {
+			if (err) {
+				callback(err, null);
+				return;
+			}
+			callback(null, response.result.n);
+		});
+	}
 
 	collection.remove.apply(collection, arg);
 	return self;
@@ -1153,8 +1078,15 @@ MongoBuilder.prototype.removeOne = function(collection, options, callback) {
 	 if (options)
 		arg.push(options);
 
-	if (callback)
-		arg.push(callback);
+	if (callback) {
+		arg.push(function(err, response) {
+			if (err) {
+				callback(err, null);
+				return;
+			}
+			callback(null, response.result.n);
+		});
+	}
 
 	collection.remove.apply(collection, arg);
 	return self;
